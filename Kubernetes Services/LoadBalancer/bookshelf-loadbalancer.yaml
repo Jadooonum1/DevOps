@@ -1,0 +1,17 @@
+# NodePort + a request for an external load balancer. On a cloud provider the
+# cloud controller fills in EXTERNAL-IP; on Minikube `minikube tunnel` plays that role.
+apiVersion: v1
+kind: Service
+metadata:
+  name: bookshelf-loadbalancer
+  namespace: library
+  labels:
+    app: bookshelf
+spec:
+  type: LoadBalancer
+  selector:
+    app: bookshelf
+  ports:
+    - name: web
+      port: 8000
+      targetPort: http

@@ -1,0 +1,27 @@
+# Two long-running helper Pods used to test the Services from inside the cluster:
+# `client` has curl, `dns` has nslookup (busybox).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client
+  namespace: library
+  labels:
+    role: test-client
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.11.1
+      command: ["sleep", "infinity"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns
+  namespace: library
+  labels:
+    role: test-client
+spec:
+  containers:
+    - name: busybox
+      image: busybox:1.36
+      command: ["sleep", "infinity"]

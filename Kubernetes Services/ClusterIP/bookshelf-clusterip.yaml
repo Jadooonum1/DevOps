@@ -1,0 +1,17 @@
+# Default Service type: a virtual IP reachable only from inside the cluster.
+# Service port 8000 forwards to the container port named "http" (80).
+apiVersion: v1
+kind: Service
+metadata:
+  name: bookshelf-clusterip
+  namespace: library
+  labels:
+    app: bookshelf
+spec:
+  type: ClusterIP
+  selector:
+    app: bookshelf
+  ports:
+    - name: web
+      port: 8000
+      targetPort: http

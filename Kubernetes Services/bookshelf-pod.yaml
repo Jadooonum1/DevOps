@@ -1,0 +1,49 @@
+# The single backend every Service type in this folder points at.
+# A ConfigMap supplies the HTML page; the Pod names its container port "http"
+# so the Services can use `targetPort: http` instead of a number.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bookshelf-page
+  namespace: library
+data:
+  index.html: |
+    <!doctype html>
+    <html>
+      <head><title>Bookshelf - Kubernetes Services lab</title></head>
+      <body>
+        <h1>Bookshelf</h1>
+        <p>Served by the <code>bookshelf</code> Pod in namespace <code>library</code>.</p>
+      </body>
+    </html>
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bookshelf
+  namespace: library
+  labels:
+    app: bookshelf
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27-alpine
+      ports:
+        - name: http
+          containerPort: 80
+      readinessProbe:
+        httpGet:
+          path: /
+          port: http
+        periodSeconds: 5
+      volumeMounts:
+        - name: page
+          mountPath: /usr/share/nginx/html
+          readOnly: true
+      resources:
+        requests: { cpu: 20m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }
+  volumes:
+    - name: page
+      configMap:
+        name: bookshelf-page

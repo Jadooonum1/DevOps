@@ -1,0 +1,17 @@
+# clusterIP: None -> no virtual IP and no kube-proxy rules.
+# DNS for the Service name returns the ready Pod IPs directly.
+apiVersion: v1
+kind: Service
+metadata:
+  name: bookshelf-headless
+  namespace: library
+  labels:
+    app: bookshelf
+spec:
+  clusterIP: None
+  selector:
+    app: bookshelf
+  ports:
+    - name: web
+      port: 80
+      targetPort: http

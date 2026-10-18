@@ -1,0 +1,15 @@
+# Deliberately wrong selector (app: bookshelff). It is valid YAML and the API server
+# accepts it, but it matches no Pod, so the Service has no endpoints.
+apiVersion: v1
+kind: Service
+metadata:
+  name: bookshelf-typo
+  namespace: library
+spec:
+  type: ClusterIP
+  selector:
+    app: bookshelff
+  ports:
+    - name: web
+      port: 8000
+      targetPort: http

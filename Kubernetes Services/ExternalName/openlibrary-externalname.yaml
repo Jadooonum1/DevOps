@@ -1,0 +1,10 @@
+# No selector, no IP, no endpoints: cluster DNS just answers with a CNAME.
+# Pods can use the stable in-cluster name `openlibrary` while the real host lives outside.
+apiVersion: v1
+kind: Service
+metadata:
+  name: openlibrary
+  namespace: library
+spec:
+  type: ExternalName
+  externalName: openlibrary.org
