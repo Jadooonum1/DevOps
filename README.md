@@ -33,7 +33,7 @@ and what to look for. Each `screenshots/` folder lists the screenshots to captur
 
 ## Environment
 
-- macOS with Docker Desktop; Linux-only commands run in `ubuntu:24.04` containers
+- macOS with Colima (Docker engine); Linux-only commands run in `ubuntu:24.04` containers
 - Kubernetes: Minikube with the Docker driver (`minikube start --driver=docker`)
 - AWS: [LocalStack](https://github.com/localstack/localstack) in Docker, so no real AWS account is needed
 - Tools: `kubectl`, `helm`, `terraform`, `awscli`
