@@ -42,8 +42,8 @@ Numeric samples over time, identified by a name and labels, e.g.
 
 ### Logs
 
-Timestamped records of single events, written by the application: `ERROR payments
-gateway unreachable, exiting`.
+Timestamped records of single events, written by the application: `ERROR smtp
+relay unreachable, exiting` (from the lab's `overdue-mailer`).
 
 - They give the most detail: stack traces, input values, decisions the code made.
 - **Structured** logs (JSON with fields like `level`, `member_id`, `trace_id`) can be
@@ -66,7 +66,7 @@ operation, each with a start time, duration and attributes) that share a **trace
 
 A typical investigation goes **metrics → traces → logs**:
 
-1. An alert fires from a **metric** (`CatalogApiHighErrorRate`).
+1. An alert fires from a **metric** (`LibraryApiHighErrorRate`).
 2. The dashboard shows *when* it started and *which* service and version are affected.
 3. A **trace** of a failing request shows *where* in the call chain the time or error is.
 4. The **logs** for that span (found by trace ID) show *why*: the exact error message.
@@ -74,6 +74,21 @@ A typical investigation goes **metrics → traces → logs**:
 Shared labels (`namespace`, `app`, `pod`) and a trace ID in every log line are what let
 you jump from one signal to the next. That is why the Alloy config in this folder copies
 Kubernetes metadata onto every log stream.
+
+The screenshot below is from the lab run, in Grafana Explore split view. On the left is the
+**metric**: Prometheus counts about 0.35 HTTP 500 responses per second from `catalog-api`.
+On the right are the **logs** for the same symptom: Loki shows the individual
+`simulated catalogue error -> 500` lines that `search-traffic` wrote, roughly 20 per minute.
+The metric tells you *how much* and *since when*. The log lines tell you *which* requests
+failed. Both panes use the same `namespace` and `app` labels.
+
+![Grafana Explore split view: Prometheus 500 rate (left) next to the matching Loki log lines (right)](screenshots/01-metrics-and-logs-side-by-side.png)
+
+The same run also shows why logs must be shipped off the node. `kubectl logs --previous`
+could no longer return the output of earlier `overdue-mailer` containers, but Loki still
+had the `ERROR` line from every one of them. See
+[`../screenshots/06-kubectl-logs.png`](../screenshots/06-kubectl-logs.png) and
+[`../screenshots/07-grafana-explore-loki.png`](../screenshots/07-grafana-explore-loki.png).
 
 ## Common tools
 

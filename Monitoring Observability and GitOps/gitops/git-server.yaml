@@ -1,0 +1,60 @@
+# Tiny in-cluster Git server for the GitOps demo (lab only: no auth, emptyDir storage).
+# Serves bare repos under /git over the git:// protocol (port 9418) with push enabled.
+# Argo CD reads from git://git-server.git-server.svc.cluster.local/library-gitops.git
+# and you push to it through: kubectl -n git-server port-forward svc/git-server 9418:9418
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: git-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-server
+  namespace: git-server
+  labels: { app: git-server }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: git-server }
+  template:
+    metadata:
+      labels: { app: git-server }
+    spec:
+      containers:
+        - name: git
+          image: alpine:3.20
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              apk add --no-cache git git-daemon >/dev/null   # git daemon is a separate Alpine package
+              [ -d /git/library-gitops.git ] || git init --bare --initial-branch=main /git/library-gitops.git
+              exec git daemon --verbose --reuseaddr --export-all --enable=receive-pack \
+                --informative-errors --base-path=/git /git
+          ports:
+            - name: git
+              containerPort: 9418
+          readinessProbe:
+            tcpSocket: { port: git }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+          volumeMounts:
+            - name: repos
+              mountPath: /git
+      volumes:
+        - name: repos
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: git-server
+  namespace: git-server
+spec:
+  selector: { app: git-server }
+  ports:
+    - name: git
+      port: 9418
+      targetPort: git

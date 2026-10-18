@@ -30,6 +30,17 @@ spec:
             summary: "{{ $labels.job }} is returning 5xx for {{ $value | humanizePercentage }} of requests"
             description: "More than 5% of requests to {{ $labels.job }} in {{ $labels.namespace }} failed over the last 5 minutes."
 
+        - alert: CatalogApiDown
+          # absent() also covers "no catalog-api target at all", e.g. after scaling to 0.
+          expr: absent(up{namespace="library-obs", job="catalog-api"} == 1)
+          for: 1m
+          labels:
+            severity: critical
+            team: library
+          annotations:
+            summary: "No catalog-api instance is up"
+            description: "Prometheus has no healthy catalog-api target. Check: kubectl -n library-obs get deploy,pods"
+
         - alert: LibraryApiSlowRequests
           expr: |
             histogram_quantile(0.95,
@@ -43,13 +54,15 @@ spec:
             summary: "p95 latency of {{ $labels.job }} is {{ $value | humanizeDuration }}"
 
         - alert: LibraryPodRestarting
-          expr: increase(kube_pod_container_status_restarts_total{namespace="library-obs"}[10m]) > 2
+          # 15m window: once in CrashLoopBackOff the kubelet waits up to 5m between restarts,
+          # so a 10m window would only see ~2 restarts and the alert would flap.
+          expr: increase(kube_pod_container_status_restarts_total{namespace="library-obs"}[15m]) >= 2
           for: 1m
           labels:
             severity: warning
             team: library
           annotations:
-            summary: "{{ $labels.pod }} restarted {{ $value | printf \"%.0f\" }} times in 10 minutes"
+            summary: "{{ $labels.pod }} restarted {{ $value | printf \"%.0f\" }} times in 15 minutes"
             description: "Check: kubectl -n {{ $labels.namespace }} logs {{ $labels.pod }} --previous"
 
         - alert: LibraryPodNotReady

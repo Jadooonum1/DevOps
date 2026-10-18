@@ -1,6 +1,8 @@
 # Argo CD Application: keep namespace library-gitops identical to the app/ folder in Git.
-# Before applying, replace YOUR_GITHUB_USER with the account that hosts this DevOps repo
-# and push a branch called gitops-demo (demo commits go there, not to main).
+# Source: the in-cluster Git server from gitops/git-server.yaml (repo library-gitops.git,
+# whose app/ folder is a copy of gitops-repo/app). To use a GitHub repo instead, set
+# repoURL to https://github.com/<user>/<repo>.git, targetRevision to your branch and
+# path to the folder holding the manifests (add credentials if the repo is private).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -11,9 +13,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USER/DevOps.git
-    targetRevision: gitops-demo
-    path: Monitoring Observability and GitOps/gitops/gitops-repo/app
+    repoURL: git://git-server.git-server.svc.cluster.local/library-gitops.git
+    targetRevision: main
+    path: app
   destination:
     server: https://kubernetes.default.svc
     namespace: library-gitops

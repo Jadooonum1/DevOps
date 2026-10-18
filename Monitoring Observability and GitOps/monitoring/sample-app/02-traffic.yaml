@@ -1,4 +1,4 @@
-# Steady fake traffic: mostly successful catalogue lookups, ~1 in 5 requests is a 500
+# Steady fake traffic: mostly successful catalogue lookups, ~1 in 5 of its requests is a 500 (every 2nd loop adds a /status/500 call to the 2 good ones)
 # and some are slow, so rate / error-ratio / latency queries have something to show.
 apiVersion: apps/v1
 kind: Deployment
@@ -26,7 +26,7 @@ spec:
                 i=$((i+1))
                 curl -s -o /dev/null "$base/"
                 curl -s -o /dev/null "$base/api/info"
-                if [ $((i % 5)) -eq 0 ]; then
+                if [ $((i % 2)) -eq 0 ]; then
                   code=$(curl -s -o /dev/null -w '%{http_code}' "$base/status/500")
                   echo "request $i: simulated catalogue error -> $code"
                 fi
