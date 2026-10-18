@@ -9,7 +9,7 @@ enabled, `catalog-api` and `reader-web` deployed in namespace `library`), the cu
 namespace is `library`, and the controller is port-forwarded:
 
 ```bash
-kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80
+kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80 8443:443
 ```
 
 Run the commands from this `troubleshooting/` folder.
@@ -44,8 +44,9 @@ curl -s -w ' %{http_code}\n' -H 'X-Api-Key: lib-7c1e' localhost:9000/loans
   or `echo -n`. Then restart the Pods: env vars are only read at container start, so
   updating the Secret alone changes nothing. After the restart, `200` with the loan counts.
 
-(This bug was reproduced locally with `docker run` of the same nginx template: `API_KEY`
-with a trailing newline gave `401`, without it `200`.)
+![TS1 broken: 401, and od -c shows the \n in the Secret and in the env var](../screenshots/ts1-secret-newline-broken.png)
+
+![TS1 fixed: 8 bytes, rollout restart, 200 with the right key and 401 with a wrong one](../screenshots/ts1-secret-newline-fixed.png)
 
 ## 2. ConfigMap key that does not exist
 
@@ -72,6 +73,10 @@ kubectl logs fine-calculator
   key is genuinely optional, `optional: true` on the `configMapKeyRef` lets the Pod start
   without it. The fixed Pod logs `fine per day: 0.50, cap: 10.00`.
 
+![TS2 broken: CreateContainerConfigError and the couldn't find key event](../screenshots/ts2-configmap-key-broken.png)
+
+![TS2 fixed: Pod Running and its log line](../screenshots/ts2-configmap-key-fixed.png)
+
 ## 3. Ingress points at a Service that does not exist
 
 [`03-ingress-wrong-service/`](03-ingress-wrong-service): host `catalog.library.local` → Service
@@ -89,12 +94,17 @@ curl -s -H 'Host: catalog.library.local' http://localhost:8080/
 ```
 
 - **Symptom:** `503 Service Temporarily Unavailable` from the controller. The Ingress itself
-  was accepted without any error and even gets an ADDRESS.
+  was accepted without any error (it gets an ADDRESS once the controller syncs its status;
+  8 seconds in, on this run, the column was still empty).
 - **Diagnosis:** `describe ingress` shows the backend as
   `catalog-service:8000 (<error: services "catalog-service" not found>)`; the controller log
   has a matching warning. `kubectl get svc` shows the real name.
 - **Fix:** use the real Service name and port. After applying, the same curl returns the
   `catalog-api` text.
+
+![TS3 broken: 503, the not found error in describe, the real Service list, and the controller log](../screenshots/ts3-ingress-service-broken.png)
+
+![TS3 fixed: backend resolves to Pod IPs and the curl returns catalog-api](../screenshots/ts3-ingress-service-fixed.png)
 
 ## 4. Wrong `ingressClassName`
 
@@ -121,6 +131,10 @@ curl -s -H 'Host: class.library.local' http://localhost:8080/
   default IngressClass, which `minikube addons enable ingress` sets up). The fixed Ingress
   returns the `catalog-api` text.
 
+![TS4 broken: CLASS traefik, empty ADDRESS after 60 s, only nginx exists, 404, no Events](../screenshots/ts4-ingress-class-broken.png)
+
+![TS4 fixed: ADDRESS, Sync event and the catalog-api response](../screenshots/ts4-ingress-class-fixed.png)
+
 ## 5. Service `targetPort` does not match the container
 
 [`05-service-wrong-targetport/`](05-service-wrong-targetport): `renewals` (http-echo on
@@ -145,7 +159,13 @@ curl -s -H 'Host: renewals.library.local' http://localhost:8080/
   while connecting to upstream` with `<pod-ip>:8080`.
 - **Fix:** `targetPort: 5678` (better: name the container port and use `targetPort: http`,
   as the main manifests do). The EndpointSlice switches to 5678 and the curl returns the
-  renewals text.
+  renewals text. On this run ingress-nginx took about 20 seconds to pick up the changed
+  endpoint port (the first curl straight after the apply still got `502`), so retry for a
+  little while before deciding the fix did not work.
+
+![TS5 broken: Pod Running, 502, EndpointSlice on 8080 vs containerPort 5678, connection refused in the controller log](../screenshots/ts5-service-port-broken.png)
+
+![TS5 fixed: EndpointSlice on 5678 and 200 after 21 s](../screenshots/ts5-service-port-fixed.png)
 
 ## Which symptom means what
 
@@ -168,11 +188,3 @@ kubectl delete -f 05-service-wrong-targetport/renewals-fixed.yaml -f 04-wrong-in
   -f 02-configmap-missing-key/configmap.yaml -f 01-secret-newline/loan-service.yaml \
   -f 01-secret-newline/secret-fixed.yaml --ignore-not-found
 ```
-
-## Screenshots to capture
-
-Into [`../screenshots/`](../screenshots): `ts1-secret-newline-broken.png` /
-`ts1-secret-newline-fixed.png`, `ts2-configmap-key-broken.png` / `-fixed.png`,
-`ts3-ingress-service-broken.png` / `-fixed.png`, `ts4-ingress-class-broken.png` /
-`-fixed.png`, `ts5-service-port-broken.png` / `-fixed.png`. Each "broken" shot should show
-the symptom and the diagnosing command; each "fixed" shot the working request.

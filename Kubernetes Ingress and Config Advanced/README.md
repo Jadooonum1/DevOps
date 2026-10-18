@@ -14,7 +14,7 @@ Author: Parth Agarwal · Cluster: Minikube, Docker driver · Namespace: `library
 | [`manifests/`](manifests) | Numbered manifests for sections 1-3 |
 | [`ingress-vs-ingress-controller/`](ingress-vs-ingress-controller) | Written comparison, plus commands to prove it on the cluster |
 | [`troubleshooting/`](troubleshooting) | Five broken → fixed scenarios |
-| [`screenshots/`](screenshots) | Empty; list of screenshots to take is at the end |
+| [`screenshots/`](screenshots) | Screenshots from a real run, embedded below |
 
 | Manifest | Creates |
 |---|---|
@@ -36,6 +36,12 @@ kubectl config set-context --current --namespace=library
 
 Do **not** enable the ingress addon yet; section 3 starts without it.
 
+> **On the run captured below** the Minikube cluster was shared with other exercises and
+> had to keep the ingress addon enabled throughout, so the "no controller yet" step of
+> section 3 was not re-captured. The identical symptom (Ingress accepted, empty ADDRESS, no
+> Events) is shown for real in troubleshooting scenario 4, where no controller claims the
+> Ingress because of its class.
+
 ## 1. ConfigMaps
 
 ### Creating
@@ -50,6 +56,8 @@ kubectl create configmap loan-policy --from-literal=MAX_LOANS=5 --from-literal=L
   --from-literal=FINE_PER_DAY=0.50 --from-literal=RENEWALS_ALLOWED=2 \
   --from-file=/tmp/opening-hours.txt --dry-run=client -o yaml
 ```
+
+![describe configmap loan-policy and the imperative dry-run](screenshots/01-configmap-create.png)
 
 ### Three ways into a Pod
 
@@ -68,11 +76,20 @@ kubectl logs policy-reader --tail=3
 **What to look for:**
 
 - `LOAN_LIMIT=5` comes from the single-key reference; `MAX_LOANS`, `LOAN_DAYS`,
-  `FINE_PER_DAY` and `RENEWALS_ALLOWED` come from `envFrom`. `opening-hours.txt` is **not**
-  an env var: it is not a valid variable name, so `envFrom` skips it (the Pod gets an
-  `InvalidEnvironmentVariableNames` event, visible in `kubectl describe pod policy-reader`).
+  `FINE_PER_DAY` and `RENEWALS_ALLOWED` come from `envFrom`.
+- `opening-hours.txt`: on clusters before Kubernetes 1.34 this key is **not** an env var,
+  because it is not a C-style variable name; `envFrom` skips it and the Pod gets an
+  `InvalidEnvironmentVariableNames` event. Since 1.34 (relaxed env var name validation, GA)
+  any printable ASCII name except `=` is allowed, so on the v1.37 cluster used here
+  `opening-hours.txt` **is** imported as an env var and there is no event (screenshot
+  below). Shells cannot reference such a variable as `$opening-hours.txt`, so it is still
+  useless to most apps; prefer the volume for whole files.
 - In the volume every key is a file. The files are symlinks into a hidden `..data`
   directory; that indirection is what lets the kubelet swap all of them atomically.
+
+![env vars, mounted files with the ..data symlinks, and the first log lines](screenshots/02-configmap-inject.png)
+
+![Kubernetes v1.37: opening-hours.txt shows up in env, no InvalidEnvironmentVariableNames event](screenshots/03-envfrom-relaxed-names.png)
 
 ### Changing a ConfigMap under a running Pod
 
@@ -87,6 +104,10 @@ for the life of the container. Env vars are copied in once at start; only volume
 in sync (and not when mounted with `subPath`). To pick up env changes, restart the
 workload, for a Deployment `kubectl rollout restart deploy/<name>`. A common pattern is to
 put a hash of the config in a Pod annotation so that a config change produces a rollout.
+
+On this run the file changed about 90 seconds after the patch, the env var never did:
+
+![file MAX_LOANS flips to 8, env stays 5](screenshots/04-configmap-update.png)
 
 Reset it: `kubectl apply -f manifests/01-configmap.yaml`.
 
@@ -104,6 +125,8 @@ kubectl create secret generic payments-credentials-cli \
   --dry-run=client -o yaml
 ```
 
+![The data block of the Secret and the kubectl-generated equivalent](screenshots/05-secret-create.png)
+
 ### Consuming
 
 ```bash
@@ -116,13 +139,18 @@ kubectl exec secret-reader -- mount | grep /etc/payments
 **What to look for:** the client id printed from the env var, the secret file's length
 (17 bytes, the same as `demo-only-Pay2026`, so no stray newline), files with mode
 `-r--------`, and the mount type `tmpfs`: Secret volumes are kept in memory on the node and
-never written to its disk.
+never written to its disk. (The Pod lists the files with `ls -lL`, because the entries in
+the mount are symlinks into `..data`; plain `ls -l` would only show `lrwxrwxrwx`.)
+
+![secret-reader logs: client id, 17-byte file, mode -r--------, and the tmpfs mount](screenshots/06-secret-inject.png)
 
 ### Why base64 is not protection, and why Secrets stay out of Git
 
 ```bash
 kubectl get secret payments-credentials -o jsonpath='{.data.PAYMENTS_CLIENT_SECRET}' | base64 -d; echo
 ```
+
+![base64 -d prints the demo secret](screenshots/07-secret-not-encrypted.png)
 
 Anyone with `get secret` permission sees the plain value; base64 is only an encoding so
 that binary data fits in YAML. Real protection is:
@@ -146,6 +174,8 @@ kubectl rollout status deploy/reader-web && kubectl rollout status deploy/catalo
 kubectl get deploy,svc,endpointslices
 ```
 
+![Deployments, Services and EndpointSlices](screenshots/08-app.png)
+
 ### An Ingress with no controller does nothing
 
 ```bash
@@ -168,15 +198,19 @@ kubectl get pods,svc -n ingress-nginx
 kubectl get ingressclass
 ```
 
+![Addon enabled, controller Pod and Service, IngressClass nginx](screenshots/09-controller.png)
+
 ### The same Ingress now works, unchanged
 
 ```bash
-kubectl get ingress library-ingress -w          # ADDRESS appears within ~30-60 s; Ctrl-C
+kubectl get ingress library-ingress -w          # ADDRESS appears within ~30-60 s (56 s here); Ctrl-C
 kubectl describe ingress library-ingress        # Events: Sync ... Scheduled for sync
 
 # terminal 2: reach the controller from macOS (the node IP is not routable with the Docker driver)
 kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80 8443:443
 ```
+
+![ADDRESS filled in, TLS and both hosts' backends, Sync event](screenshots/10-ingress-now-works.png)
 
 ### Routing by path and by host
 
@@ -199,7 +233,10 @@ for i in 1 2 3 4; do lib api.library.local /; done
 **What to look for:** `library.local/` answers with `reader-web`, both `/api` paths with
 `catalog-api`, and `api.library.local` reaches `catalog-api` without any `/api` prefix. An
 unknown host gets the controller's default `404`, and plain HTTP gets `308` to `https://`.
-The `(pod ...)` suffix alternates between the two replicas.
+The `(pod ...)` suffix alternates between the two replicas. The last command shows the
+controller's built-in fake certificate, because `library-tls` does not exist yet.
+
+![Path and host routing, 404 for an unknown host, 308 for plain HTTP, and the Fake Certificate](screenshots/12-routing-verify.png)
 
 ### TLS
 
@@ -224,8 +261,16 @@ controller served its built-in "Kubernetes Ingress Controller Fake Certificate";
 the tell-tale sign of a missing or wrong TLS Secret. The controller picks up the new Secret
 without the Ingress being touched (allow a few seconds).
 
+![Certificate created, stored as kubernetes.io/tls, and verified by curl with --cacert](screenshots/13-tls.png)
+
 For a browser: add `127.0.0.1 library.local api.library.local` to `/etc/hosts` and open
-`https://library.local:8443/` (expect a self-signed warning).
+`https://library.local:8443/` (expect a self-signed warning). The screenshots below used
+Chromium's `--host-resolver-rules` instead of editing `/etc/hosts`, with the self-signed
+warning accepted:
+
+![https://library.local:8443/ served by reader-web](screenshots/14-browser-https.png)
+
+![https://api.library.local:8443/ routed by host to catalog-api](screenshots/15-browser-api-host.png)
 
 ## 4. Ingress vs Ingress Controller
 
@@ -233,6 +278,8 @@ See [`ingress-vs-ingress-controller/README.md`](ingress-vs-ingress-controller/RE
 Short version: the **Ingress** is a set of routing rules stored in the API; the **Ingress
 controller** is a running proxy that reads those rules and serves traffic. Section 3 shows
 the first without the second doing nothing at all.
+
+![server blocks the controller generated in its nginx.conf](screenshots/11-controller-nginx-conf.png)
 
 ## 5. Troubleshooting
 
@@ -249,8 +296,11 @@ kubectl delete -f manifests/01-configmap-pod.yaml -f manifests/01-configmap.yaml
 kubectl delete secret library-tls
 rm -f /tmp/library.key /tmp/library.crt /tmp/opening-hours.txt
 kubectl config set-context --current --namespace=default
+kubectl delete -f manifests/00-namespace.yaml     # optional
 # minikube addons disable ingress
 ```
+
+![Cleanup, including the troubleshooting objects](screenshots/16-cleanup.png)
 
 ## Cheat sheet
 
@@ -266,20 +316,3 @@ kubectl get secret NAME -o jsonpath='{.data.K}' | base64 -d
 kubectl get ingressclass ; kubectl describe ingress NAME
 kubectl -n ingress-nginx logs deploy/ingress-nginx-controller --tail=50
 ```
-
-## Screenshots to capture
-
-Save into [`screenshots/`](screenshots):
-
-1. `configmap-create.png` - `describe configmap loan-policy`
-2. `configmap-inject.png` - env vars and mounted files in `policy-reader`
-3. `configmap-update.png` - log lines with the file value changed and the env value unchanged
-4. `secret-create.png` - Secret YAML `data` block
-5. `secret-inject.png` - `secret-reader` logs and the `tmpfs` mount
-6. `secret-not-encrypted.png` - `base64 -d` printing the value
-7. `ingress-no-controller.png` - Ingress with empty ADDRESS and no IngressClass
-8. `install-controller.png` - addon enabled, controller Pod and IngressClass
-9. `ingress-now-works.png` - ADDRESS filled in, describe Events
-10. `routing-verify.png` - the path and host routing curls
-11. `tls.png` - `curl -v` showing the certificate subject and verification
-12. Troubleshooting: `ts1`-`ts5`, a `-broken.png` and `-fixed.png` for each scenario
