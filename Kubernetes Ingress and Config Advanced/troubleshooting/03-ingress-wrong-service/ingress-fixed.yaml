@@ -1,0 +1,19 @@
+# FIXED: points at the existing Service catalog-api:8000.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: catalog-direct
+  namespace: library
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: catalog.library.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  number: 8000

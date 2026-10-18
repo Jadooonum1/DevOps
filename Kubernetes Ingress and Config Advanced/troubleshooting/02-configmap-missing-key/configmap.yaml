@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fine-policy
+  namespace: library
+data:
+  FINE_PER_DAY: "0.50"
+  MAX_FINE: "10.00"

@@ -1,0 +1,19 @@
+# FIXED: ingressClassName matches the installed controller (kubectl get ingressclass).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: catalog-classcheck
+  namespace: library
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: class.library.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  number: 8000

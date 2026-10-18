@@ -1,0 +1,76 @@
+# loan-service only answers /loans when the X-Api-Key header equals API_KEY byte for byte.
+# nginx renders the check from a template, with API_KEY injected from the Secret.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loan-service-nginx
+  namespace: library
+data:
+  default.conf.template: |
+    server {
+      listen 8080;
+      default_type application/json;
+      location = /healthz { return 200 '{"status":"ok"}\n'; }
+      location = /loans {
+        if ($http_x_api_key != "${API_KEY}") { return 401 '{"error":"invalid api key"}\n'; }
+        return 200 '{"activeLoans":42,"overdue":3}\n';
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loan-service
+  namespace: library
+  labels:
+    app: loan-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loan-service
+  template:
+    metadata:
+      labels:
+        app: loan-service
+    spec:
+      containers:
+        - name: loan-service
+          image: nginx:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: loan-service-api-key
+                  key: API_KEY
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          volumeMounts:
+            - name: template
+              mountPath: /etc/nginx/templates
+              readOnly: true
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+      volumes:
+        - name: template
+          configMap:
+            name: loan-service-nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loan-service
+  namespace: library
+spec:
+  selector:
+    app: loan-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

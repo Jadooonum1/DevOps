@@ -1,0 +1,47 @@
+# Path routing on library.local, host routing on api.library.local, TLS for both.
+# The TLS Secret `library-tls` is created from a self-signed cert (see README).
+# rewrite-target applies to every path in this Ingress, so the catch-all path also
+# uses a capture group: /()(.*) rewrites "/x" to "/x".
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: library-ingress
+  namespace: library
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - library.local
+        - api.library.local
+      secretName: library-tls
+  rules:
+    - host: library.local
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  number: 8000
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: reader-web
+                port:
+                  number: 80
+    - host: api.library.local
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  number: 8000

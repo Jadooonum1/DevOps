@@ -1,0 +1,16 @@
+# Loan rules for the library. Plain keys for env vars, plus one whole file.
+# Equivalent CLI: kubectl create configmap loan-policy --from-literal=MAX_LOANS=5 ... --from-file=opening-hours.txt
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loan-policy
+  namespace: library
+data:
+  MAX_LOANS: "5"
+  LOAN_DAYS: "21"
+  FINE_PER_DAY: "0.50"
+  RENEWALS_ALLOWED: "2"
+  opening-hours.txt: |
+    Mon-Fri 09:00-20:00
+    Sat     10:00-16:00
+    Sun     closed

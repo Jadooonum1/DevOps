@@ -1,0 +1,47 @@
+# Three ways to consume a ConfigMap, side by side in one Pod:
+#   1. env + configMapKeyRef  -> one key, renamed (LOAN_LIMIT)
+#   2. envFrom                -> every key as an env var (invalid names such as
+#                                opening-hours.txt are skipped)
+#   3. volume                 -> every key as a file under /etc/loan-policy
+# The loop prints the env var and the mounted file every 15 s, so an edit to the
+# ConfigMap shows up in the file but not in the env var.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: policy-reader
+  namespace: library
+  labels:
+    app: policy-reader
+spec:
+  containers:
+    - name: reader
+      image: busybox:1.36
+      command: ["sh", "-c"]
+      args:
+        - |
+          while true; do
+            echo "---- $(date -u +%T)"
+            echo "env  LOAN_LIMIT=$LOAN_LIMIT MAX_LOANS=$MAX_LOANS LOAN_DAYS=$LOAN_DAYS"
+            echo "file MAX_LOANS=$(cat /etc/loan-policy/MAX_LOANS)"
+            sleep 15
+          done
+      env:
+        - name: LOAN_LIMIT
+          valueFrom:
+            configMapKeyRef:
+              name: loan-policy
+              key: MAX_LOANS
+      envFrom:
+        - configMapRef:
+            name: loan-policy
+      volumeMounts:
+        - name: policy
+          mountPath: /etc/loan-policy
+          readOnly: true
+      resources:
+        requests: { cpu: 5m, memory: 8Mi }
+        limits: { cpu: 50m, memory: 16Mi }
+  volumes:
+    - name: policy
+      configMap:
+        name: loan-policy

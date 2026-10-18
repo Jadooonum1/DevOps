@@ -1,0 +1,19 @@
+# BROKEN: no IngressClass called 'traefik' exists on this cluster, so no controller picks it up.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: catalog-classcheck
+  namespace: library
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: class.library.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-api
+                port:
+                  number: 8000

@@ -1,0 +1,24 @@
+# FIXED: key name matches the ConfigMap.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fine-calculator
+  namespace: library
+  labels:
+    app: fine-calculator
+spec:
+  containers:
+    - name: calc
+      image: busybox:1.36
+      command: ["sh", "-c", "echo \"fine per day: $FINE_PER_DAY, cap: $MAX_FINE\"; sleep 3600"]
+      env:
+        - name: FINE_PER_DAY
+          valueFrom:
+            configMapKeyRef:
+              name: fine-policy
+              key: FINE_PER_DAY
+        - name: MAX_FINE
+          valueFrom:
+            configMapKeyRef:
+              name: fine-policy
+              key: MAX_FINE

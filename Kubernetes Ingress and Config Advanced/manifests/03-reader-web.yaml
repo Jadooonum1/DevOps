@@ -1,0 +1,53 @@
+# Front end. http-echo answers every path with the same text, which keeps the routing easy to read.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reader-web
+  namespace: library
+  labels:
+    app: reader-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: reader-web
+  template:
+    metadata:
+      labels:
+        app: reader-web
+    spec:
+      containers:
+        - name: reader-web
+          image: hashicorp/http-echo:1.0.0
+          args: ["-listen=:5678", "-text=reader-web: City Central Library home (pod $(POD_NAME))"]
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: http
+              containerPort: 5678
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 32Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reader-web
+  namespace: library
+  labels:
+    app: reader-web
+spec:
+  selector:
+    app: reader-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
