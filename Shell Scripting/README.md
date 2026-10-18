@@ -78,54 +78,42 @@ docker run --rm -it -h bookshelf-srv -v "$PWD":/work -w /work ubuntu:24.04 bash
 
 ## Tested output
 
-Both scripts were tested in an `ubuntu:24.04` container (hostname `bookshelf-srv`), answering
-the prompts with `reports` and `processes.txt`. Real output, trimmed:
+Both scripts were run for real in an `ubuntu:24.04` container (`docker run -h bookshelf-srv`,
+scripts copied to `/work`). `read -p` only prints its prompt when stdin is a terminal, so to
+show the prompts in a non-interactive capture the two answers were typed into a pseudo-terminal
+with `script`: `answers reports processes.txt | script -qec ./library-report.sh /dev/null`
+(`answers` just echoes each argument after a 1-second pause). Typing them by hand gives the same result.
 
-```text
-------------------------------------------------------------
-  bookshelf server report
-------------------------------------------------------------
-Date:          2026-10-18 13:55:09 UTC
-Server:        bookshelf-srv
-Operator:      root
-Kernel:        Linux 6.8.0-117-generic
-Root disk:     4.9G used / 40G total (14%)
-Processes:     5
-...
-------------------------------------------------------------
-  report saved
-------------------------------------------------------------
-File : reports/processes.txt
-Lines: 7
-Size : 4.0K
-```
+![library-report.sh: summary, disk table, top processes, the two prompts, report saved](screenshots/01-report-run.png)
 
-A container only has a handful of processes; on a real VM the report will be much longer.
-Pressing Enter at both prompts created `library-reports/processes-2026-10-18.txt` (defaults).
+A container only has a handful of processes, so the top-5 list is tiny; on a real VM it is
+much longer. In a container the root filesystem is `overlay`, which the disk section excludes,
+so the only "real" filesystem left is the host disk bind-mounted at `/etc/hosts`. On a VM you
+see `/`, `/boot` and so on.
 
-```text
-$ TODAY=2026-10-18 ./overdue-loans.sh sample-data/loans.csv; echo "exit=$?"
-LOAN   MEMBER     TITLE                            DUE         LATE   FINE
-L1001  aisha      The Pragmatic Programmer         2026-10-01    17     34
-L1003  meera      Designing Data-Intensive Applica 2026-09-20    28     56
-L1004  kabir      The Linux Command Line           2026-10-17     1      2
+![Saved report: ls -l, head, wc -l; the non-interactive form; Enter at both prompts uses the defaults](screenshots/02-report-file.png)
 
-As of 2026-10-18: 3 overdue loan(s), total fines Rs 92 (Rs 2/day)
-warning: loan L1006 has a bad due date '2026-13-40', skipped
-exit=1
-```
+- The file starts with the two `#` header lines written with `>`, then the `ps aux` table
+  appended with `>>`.
+- `./library-report.sh nightly run.txt` skipped the prompts and wrote `nightly/run.txt`.
+- Pressing Enter at both prompts created `library-reports/processes-2026-10-18.txt` (the defaults).
 
-Also checked: a CSV with nothing overdue exits `0`; no argument or a missing file prints an
-error and exits `2`.
+![overdue-loans.sh: the CSV, the overdue table, the warning for the bad date, exit=1](screenshots/03-overdue-loans.png)
+
+![overdue-loans.sh: FINE_PER_DAY override, nothing overdue exits 0, usage/input errors exit 2](screenshots/04-overdue-loans-exit-codes.png)
+
+The warning goes to stderr, so in a terminal it can appear before the summary line (stderr is
+unbuffered). Redirecting `2>/dev/null` hides it, as in the `FINE_PER_DAY=5` run.
 
 Generated report folders (`reports/`, `library-reports/`, ...) are run-time output - do not commit them.
 
 ## Screenshots
 
-`screenshots/` contains only `.gitkeep`. Capture:
+Embedded above; files in [`screenshots/`](screenshots/):
 
-| File | What it should show |
+| File | Shows |
 |---|---|
-| `report-run.png` | `./library-report.sh` summary, disk table, top processes and the two prompts |
-| `report-file.png` | `ls -l`, `head` and `wc -l` on the saved report |
-| `overdue-loans.png` | `overdue-loans.sh` table, warning line and `exit=1` |
+| `01-report-run.png` | syntax check and the interactive `./library-report.sh` run with both prompts |
+| `02-report-file.png` | `ls -l`, `head`, `wc -l` on the saved report, non-interactive form, default names |
+| `03-overdue-loans.png` | `overdue-loans.sh` table, warning line and `exit=1` |
+| `04-overdue-loans-exit-codes.png` | `FINE_PER_DAY`, exit `0` when nothing is overdue, exit `2` on usage/input errors |
