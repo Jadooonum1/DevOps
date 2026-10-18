@@ -12,6 +12,10 @@ systems where a client must reach one specific member.
 - [`bookshelf-headless.yaml`](bookshelf-headless.yaml): no `type`, `clusterIP: None`,
   selector `app: bookshelf`, port 80.
 
+## Manifest
+
+![bookshelf-headless.yaml](screenshots/01-headless-yaml.png)
+
 ## Commands
 
 ```bash
@@ -49,8 +53,6 @@ kubectl delete pod bookshelf-2
 - `-type=a` and the full name keep busybox `nslookup` from also querying AAAA records and
   every search domain, which otherwise buries the answer in NXDOMAIN lines.
 
-## Screenshots to capture
+![CLUSTER-IP None, the EndpointSlice, the headless lookup (Pod IP) vs the ClusterIP lookup (virtual IP), and curl straight to the Pod](screenshots/02-headless-terminal.png)
 
-1. `headless-yaml.png` - the manifest
-2. `headless-terminal.png` - `CLUSTER-IP None`, the EndpointSlice, and both `nslookup` results
-3. `headless-two-pods.png` - (optional) two A records after adding `bookshelf-2`
+![With bookshelf-2 added: two endpoints and two A records](screenshots/03-headless-two-pods.png)

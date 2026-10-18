@@ -11,6 +11,10 @@ it mostly serves as the building block under LoadBalancer and Ingress.
 - [`bookshelf-nodeport.yaml`](bookshelf-nodeport.yaml): port `8000` → `targetPort: http`, with
   `nodePort: 30800` pinned. Leave `nodePort` out and Kubernetes picks a free one.
 
+## Manifest
+
+![bookshelf-nodeport.yaml](screenshots/01-nodeport-yaml.png)
+
 ## Commands
 
 ```bash
@@ -19,13 +23,16 @@ kubectl get svc bookshelf-nodeport -o wide
 minikube ip
 
 # 1) from inside the Minikube node itself
-minikube ssh -- curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:30800
-minikube ssh -- curl -s -o /dev/null -w "HTTP %{http_code}\n" http://$(minikube ip):30800
+# quote the whole remote command: `minikube ssh -- curl ... -w "HTTP ..."` loses the quoting
+# on the way to the node, and curl then prints the whole page instead of the status line
+minikube ssh 'curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:30800'
+minikube ssh "curl -s -o /dev/null -w 'HTTP %{http_code}\n' http://$(minikube ip):30800"
 
 # 2) still works as a ClusterIP from inside the cluster
 kubectl exec client -- curl -s -o /dev/null -w "HTTP %{http_code}\n" http://bookshelf-nodeport:8000
 
-# 3) from the laptop
+# 3) from the laptop: the node IP is not reachable on macOS + Docker driver
+curl -s -m 3 http://$(minikube ip):30800 || echo "node IP not reachable from the Mac (exit $?)"
 minikube service bookshelf-nodeport -n library --url
 ```
 
@@ -40,8 +47,12 @@ minikube service bookshelf-nodeport -n library --url
   URL; keep that terminal open and open the URL in a browser to see the Bookshelf page. On
   Linux with the Docker driver the node IP is usually reachable directly.
 
-## Screenshots to capture
+![get svc, curls from inside the node and from a Pod, and the timeout from the Mac](screenshots/02-nodeport-terminal.png)
 
-1. `nodeport-yaml.png` - the manifest
-2. `nodeport-terminal.png` - `get svc` and the curls from inside the node
-3. `nodeport-browser.png` - the Bookshelf page opened via the `minikube service` URL
+![minikube service --url printing a 127.0.0.1 URL (left running)](screenshots/03-minikube-service-url.png)
+
+![The Bookshelf page through the minikube service URL](screenshots/04-nodeport-browser.png)
+
+Note: when stopping `minikube service`, use Ctrl-C in its terminal. If the process is killed
+some other way, the `ssh -L` forwarder it started can be left behind (check with
+`ps aux | grep 'ssh .*-L'`).

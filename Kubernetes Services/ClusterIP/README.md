@@ -13,6 +13,10 @@ databases.
 - [`bookshelf-clusterip-typo.yaml`](bookshelf-clusterip-typo.yaml): same Service with the
   selector misspelt as `app: bookshelff`.
 
+## Manifest
+
+![bookshelf-clusterip.yaml](screenshots/01-clusterip-yaml.png)
+
 ## Commands
 
 Run from the `Kubernetes Services` folder, after the setup in the [parent README](../README.md).
@@ -23,7 +27,8 @@ kubectl get svc bookshelf-clusterip -o wide
 kubectl describe svc bookshelf-clusterip
 kubectl get endpointslices -l kubernetes.io/service-name=bookshelf-clusterip
 
-# from inside the cluster
+# from inside the cluster (right after creating the Service, give kube-proxy a second or two;
+# on the first run a curl issued in the same second got "connection refused", exit 7)
 kubectl exec client -- curl -s -o /dev/null -w "HTTP %{http_code} from %{remote_ip}:%{remote_port}\n" http://bookshelf-clusterip:8000
 kubectl exec client -- curl -s http://bookshelf-clusterip.library.svc.cluster.local:8000 | grep '<title>'
 
@@ -46,6 +51,10 @@ kubectl port-forward svc/bookshelf-clusterip 8000:8000     # then curl localhost
 - From the laptop the request times out (curl exit code 28). That is the expected behaviour
   of this type, not a bug. `port-forward` tunnels through the API server instead.
 
+![get svc, describe, EndpointSlice and the curl from the client Pod](screenshots/02-clusterip-terminal.png)
+
+![curl from the laptop times out (exit 28); port-forward works](screenshots/03-clusterip-from-laptop.png)
+
 ## Broken selector: a Service with no endpoints
 
 ```bash
@@ -54,17 +63,14 @@ kubectl get endpointslices -l kubernetes.io/service-name=bookshelf-typo
 kubectl describe svc bookshelf-typo | grep -E 'Selector|Endpoints'
 kubectl exec client -- curl -s -m 3 -o /dev/null -w "%{http_code}\n" http://bookshelf-typo:8000 ; echo "exit $?"
 kubectl get pods -l app=bookshelff          # No resources found -> the selector is the problem
-kubectl delete -f ClusterIP/bookshelf-clusterip-typo.yaml
+kubectl get pods --show-labels             # the real label is app=bookshelf
+# keep it for the overall check in the parent README; its cleanup deletes it
 ```
 
 **What to look for:** the Service is created without any error and gets a ClusterIP, but
 `Endpoints:` is empty and the EndpointSlice has no addresses. The DNS name resolves, the
-connection is refused or times out. The API server cannot know the selector is wrong;
+connection is refused (on this cluster curl got `000` and exit code 7: kube-proxy rejects
+traffic to a Service with no endpoints). The API server cannot know the selector is wrong;
 comparing `Selector` against `kubectl get pods --show-labels` is how to find it.
 
-## Screenshots to capture
-
-1. `clusterip-yaml.png` - the manifest
-2. `clusterip-terminal.png` - `get svc`, the EndpointSlice and the successful curl from `client`
-3. `clusterip-from-laptop.png` - the timed-out curl from the laptop
-4. `no-endpoints.png` - the typo Service with empty endpoints
+![The typo Service: accepted, has a ClusterIP, but no endpoints and connection refused](screenshots/04-no-endpoints.png)

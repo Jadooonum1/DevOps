@@ -36,6 +36,8 @@ kubectl get pods -o wide --show-labels
 **Expect:** three Running Pods. Note the `bookshelf` Pod IP; several Service types below are
 compared against it.
 
+![Three Running Pods after setup](screenshots/01-setup.png)
+
 ## The five types
 
 | Folder | Service | Reachable from | Test |
@@ -76,19 +78,17 @@ kubectl get svc,endpointslices -l app=bookshelf
 `bookshelf` Pod IP on port 80 (the resolved container port, not the Service port).
 `bookshelf-typo` has an EndpointSlice with no endpoints, and `openlibrary` has none at all.
 
+![All Service types side by side](screenshots/02-all-services.png)
+
+![EndpointSlices: one per selector-based Service, the typo one empty](screenshots/03-endpointslices.png)
+
 ## Cleanup
 
 ```bash
 kubectl delete -f ClusterIP/ -f NodePort/ -f LoadBalancer/ -f Headless/ -f ExternalName/ --ignore-not-found
 kubectl delete -f test-clients.yaml -f bookshelf-pod.yaml
 kubectl config set-context --current --namespace=default
+kubectl delete -f namespace.yaml      # optional
 ```
 
-## Screenshots to capture
-
-Into [`screenshots/`](screenshots) (per-type screenshots go in each subfolder):
-
-1. `setup.png` - `kubectl get pods -o wide --show-labels` after setup
-2. `all-services.png` - `kubectl get svc -o wide` with all five types
-3. `endpointslices.png` - `kubectl get endpointslices`
-4. `cleanup.png` - empty `kubectl get svc,pods` after cleanup
+![Cleanup](screenshots/04-cleanup.png)
