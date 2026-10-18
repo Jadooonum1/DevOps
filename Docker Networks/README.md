@@ -94,11 +94,11 @@ docker run --rm -v lib-shelf-data:/data busybox:1.36 cat /data/books.csv
 
 ## Real output from this machine
 
-`./demo.sh` on Docker Desktop 29.5.2 (macOS), container IDs removed:
+`./demo.sh` on Docker 29.5.2 (Colima VM on macOS), container IDs removed:
 
 ```text
 ### 3. Attach loan-service to the other two networks (multi-homed container)
-lib-backend-net=172.20.0.2 lib-data-net=172.21.0.3 lib-frontend-net=172.19.0.3
+lib-backend-net=172.21.0.2 lib-data-net=172.22.0.3 lib-frontend-net=172.20.0.3
 
 ### 4. Reachability tests (DNS by container name on user-defined bridges)
 loan-service -> reader-web:80   : <title>Welcome to nginx!</title>
@@ -128,10 +128,13 @@ Notes:
 
 - `reader-web -> catalog-db` fails at DNS, not at TCP: the embedded DNS server only answers for
   containers on networks the caller shares.
-- On Docker Desktop, "host" means the Linux VM, not macOS itself. That is why the host-network test
-  is made from a second `--network host` container rather than from a macOS `curl`. On a Linux
-  host, `curl http://127.0.0.1:18301` from the host works directly.
-- On macOS the bind-mount change can take a moment to propagate through Docker Desktop file
+- On macOS, "host" means the Linux VM that runs the Docker engine, not macOS itself, which is why
+  the script tests the host network from a second `--network host` container. On this machine the
+  engine runs in Colima, which automatically forwards ports that start listening inside the VM to
+  the Mac, so a plain `curl http://127.0.0.1:18301` from macOS also answered (see screenshot 05).
+  Docker Desktop does not forward host-network ports by default (unless its host networking
+  option is enabled); on a Linux host the curl works directly.
+- On macOS the bind-mount change can take a moment to propagate through the VM's file
   sharing; the script waits one second before the second curl.
 
 ## Overlay networks (explained, not run)
@@ -142,7 +145,7 @@ the same overlay resolve each other by service name and get a virtual IP that lo
 across replicas.
 
 Swarm was **not** initialised on this machine, because `docker swarm init` changes the state of
-the shared Docker Desktop engine that other projects are using. The commands to try on a lab VM
+the shared Docker engine that other projects are using. The commands to try on a lab VM
 (or two VMs) are:
 
 ```bash
@@ -174,11 +177,44 @@ docker network ls | grep lib-   # should print nothing
 
 ## Screenshots
 
-`screenshots/` contains only `.gitkeep`. Capture and add:
+All captured from a real run on this machine (Docker 29.5.2 in a Colima VM on macOS).
 
-1. `networks.png` - `docker network ls` showing the three `lib-*` networks.
-2. `multi-homed.png` - the `docker inspect lib-loan-service` line with three IPs.
-3. `reachability.png` - section 4 of `demo.sh` (two successes, one blocked).
-4. `host-network.png` - section 6 (`NetworkMode=host`, empty ports, wget result).
-5. `bind-mount.png` - section 7 showing v1 then v2.
-6. `cleanup.png` - `./cleanup.sh` and an empty `docker network ls | grep lib-`.
+The full `./demo.sh` run:
+
+![demo.sh](screenshots/01-demo-run.png)
+
+The three `lib-*` networks (`lib-data-net` is `internal=true`) and which network each container is on:
+
+![networks](screenshots/02-networks.png)
+
+`lib-loan-service` is multi-homed - one IP per network, and it is the only container on all three:
+
+![multi-homed](screenshots/03-multi-homed.png)
+
+Reachability: name-based DNS works on shared user-defined bridges, `reader-web` cannot even resolve
+`catalog-db`, the `--internal` network has no route (or DNS) to the internet, and the default bridge
+has no container-name DNS at all:
+
+![reachability](screenshots/04-reachability.png)
+
+Host network: no port mapping, answered from another host-network container and (thanks to
+Colima's port forwarding) from macOS:
+
+![host network](screenshots/05-host-network.png)
+
+Bind mount: editing `site/index.html` on the host changes what the container serves immediately
+(the file was restored to v1 afterwards):
+
+![bind mount](screenshots/06-bind-mount.png)
+
+| Before the edit (`localhost:18302`) | After the edit |
+|---|---|
+| ![v1 in browser](screenshots/07-bind-mount-browser.png) | ![v2 in browser](screenshots/08-bind-mount-browser-v2.png) |
+
+Named volume: data written by one throwaway container is read back by another:
+
+![named volume](screenshots/09-named-volume.png)
+
+`./cleanup.sh` leaves no `lib-` networks or demo containers behind:
+
+![cleanup](screenshots/10-cleanup.png)
