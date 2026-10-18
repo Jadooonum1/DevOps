@@ -1,0 +1,18 @@
+#!/bin/bash
+# Rendered by Terraform's templatefile(); runs once as root on first boot via cloud-init.
+set -euo pipefail
+exec > >(tee -a /var/log/reader-web-bootstrap.log) 2>&1
+
+echo "bootstrapping ${server}"
+dnf install -y nginx awscli
+
+# replace nginx's default page with the site from the private bucket (read via the instance role).
+# Not "aws s3 sync --delete": that leaves the stock poweredby.png symlink dangling and sync exits 2.
+rm -rf /usr/share/nginx/html/*
+aws s3 cp "s3://${bucket}/site/" /usr/share/nginx/html/ --recursive --region "${region}" --only-show-errors
+
+# stamp the page so each server is distinguishable behind a load balancer
+sed -i "s|__SITE_TITLE__|${site_title}|; s|__SERVER__|${server}|" /usr/share/nginx/html/index.html
+
+systemctl enable --now nginx
+curl -fsS http://localhost/ > /dev/null && echo "reader-web is serving on ${server}"
