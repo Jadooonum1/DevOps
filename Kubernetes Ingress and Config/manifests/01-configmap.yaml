@@ -1,0 +1,13 @@
+# Non-sensitive settings for catalog-api. Every key becomes an env var via envFrom.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: catalog-config
+  namespace: library
+  labels:
+    app: catalog-api
+data:
+  LIBRARY_NAME: "City Central Library"
+  MAX_LOANS_PER_MEMBER: "5"
+  LOAN_PERIOD_DAYS: "21"
+  LOG_LEVEL: "info"

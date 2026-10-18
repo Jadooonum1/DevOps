@@ -1,0 +1,95 @@
+# catalog-api: nginx renders a JSON API from a template at start-up.
+# The official nginx image runs envsubst on /etc/nginx/templates/*.template, so
+# ${LIBRARY_NAME} etc. are filled from the env vars injected below.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: catalog-api-nginx
+  namespace: library
+  labels:
+    app: catalog-api
+data:
+  default.conf.template: |
+    server {
+      listen 8080;
+      default_type application/json;
+
+      location = / {
+        return 200 '{"service":"catalog-api","library":"${LIBRARY_NAME}","maxLoans":${MAX_LOANS_PER_MEMBER},"loanDays":${LOAN_PERIOD_DAYS},"dbUser":"${DB_USER}","pod":"$hostname"}\n';
+      }
+      location = /books {
+        return 200 '[{"isbn":"9780131103627","title":"The C Programming Language"},{"isbn":"9781492034025","title":"Kubernetes: Up and Running"}]\n';
+      }
+      location = /healthz {
+        return 200 '{"status":"ok"}\n';
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-api
+  namespace: library
+  labels:
+    app: catalog-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: catalog-api
+  template:
+    metadata:
+      labels:
+        app: catalog-api
+    spec:
+      containers:
+        - name: catalog-api
+          image: nginx:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: catalog-config
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-db-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-db-secret
+                  key: DB_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          volumeMounts:
+            - name: nginx-template
+              mountPath: /etc/nginx/templates
+              readOnly: true
+          resources:
+            requests: { cpu: 20m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+      volumes:
+        - name: nginx-template
+          configMap:
+            name: catalog-api-nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-api
+  namespace: library
+  labels:
+    app: catalog-api
+spec:
+  selector:
+    app: catalog-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
