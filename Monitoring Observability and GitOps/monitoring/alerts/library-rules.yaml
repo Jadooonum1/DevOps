@@ -1,0 +1,76 @@
+# PrometheusRule picked up by kube-prometheus-stack (ruleSelectorNilUsesHelmValues: false).
+# Every alert carries team=library so Alertmanager routes it to the library-team receiver.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: library-rules
+  namespace: library-obs
+spec:
+  groups:
+    - name: library.recording
+      rules:
+        # Request rate and 5xx ratio per job, precomputed for dashboards and alerts.
+        - record: library:http_requests:rate5m
+          expr: sum by (namespace, job) (rate(http_requests_total{namespace="library-obs"}[5m]))
+        - record: library:http_errors:ratio5m
+          expr: |
+            sum by (namespace, job) (rate(http_requests_total{namespace="library-obs", status=~"5.."}[5m]))
+            /
+            sum by (namespace, job) (rate(http_requests_total{namespace="library-obs"}[5m]))
+
+    - name: library.alerts
+      rules:
+        - alert: LibraryApiHighErrorRate
+          expr: library:http_errors:ratio5m > 0.05
+          for: 2m
+          labels:
+            severity: warning
+            team: library
+          annotations:
+            summary: "{{ $labels.job }} is returning 5xx for {{ $value | humanizePercentage }} of requests"
+            description: "More than 5% of requests to {{ $labels.job }} in {{ $labels.namespace }} failed over the last 5 minutes."
+
+        - alert: LibraryApiSlowRequests
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le, job) (rate(http_request_duration_seconds_bucket{namespace="library-obs"}[5m]))
+            ) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+            team: library
+          annotations:
+            summary: "p95 latency of {{ $labels.job }} is {{ $value | humanizeDuration }}"
+
+        - alert: LibraryPodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace="library-obs"}[10m]) > 2
+          for: 1m
+          labels:
+            severity: warning
+            team: library
+          annotations:
+            summary: "{{ $labels.pod }} restarted {{ $value | printf \"%.0f\" }} times in 10 minutes"
+            description: "Check: kubectl -n {{ $labels.namespace }} logs {{ $labels.pod }} --previous"
+
+        - alert: LibraryPodNotReady
+          expr: |
+            sum by (namespace, pod) (kube_pod_status_ready{namespace="library-obs", condition="false"}) == 1
+          for: 3m
+          labels:
+            severity: warning
+            team: library
+          annotations:
+            summary: "{{ $labels.pod }} has been NotReady for 3 minutes"
+
+        - alert: LibraryPodCpuNearLimit
+          expr: |
+            sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace="library-obs", container!=""}[5m]))
+            /
+            sum by (namespace, pod) (kube_pod_container_resource_limits{namespace="library-obs", resource="cpu"})
+            > 0.9
+          for: 5m
+          labels:
+            severity: info
+            team: library
+          annotations:
+            summary: "{{ $labels.pod }} is using {{ $value | humanizePercentage }} of its CPU limit"

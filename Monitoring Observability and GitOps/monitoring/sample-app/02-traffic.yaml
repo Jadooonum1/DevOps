@@ -1,0 +1,38 @@
+# Steady fake traffic: mostly successful catalogue lookups, ~1 in 5 requests is a 500
+# and some are slow, so rate / error-ratio / latency queries have something to show.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-traffic
+  namespace: library-obs
+  labels: { app: search-traffic }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: search-traffic }
+  template:
+    metadata:
+      labels: { app: search-traffic }
+    spec:
+      containers:
+        - name: curl
+          image: curlimages/curl:8.10.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              base=http://catalog-api.library-obs:9898
+              i=0
+              while true; do
+                i=$((i+1))
+                curl -s -o /dev/null "$base/"
+                curl -s -o /dev/null "$base/api/info"
+                if [ $((i % 5)) -eq 0 ]; then
+                  code=$(curl -s -o /dev/null -w '%{http_code}' "$base/status/500")
+                  echo "request $i: simulated catalogue error -> $code"
+                fi
+                if [ $((i % 7)) -eq 0 ]; then curl -s -o /dev/null "$base/delay/1"; fi
+                sleep 1
+              done
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 32Mi }

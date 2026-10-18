@@ -1,0 +1,22 @@
+# Busy loop pinned against its 150m CPU limit -> throttled, triggers LibraryPodCpuNearLimit.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reindex-job
+  namespace: library-obs
+  labels: { app: reindex-job }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: reindex-job }
+  template:
+    metadata:
+      labels: { app: reindex-job }
+    spec:
+      containers:
+        - name: reindex
+          image: busybox:1.36
+          command: ["sh", "-c", "echo 'rebuilding search index (busy loop)'; while :; do :; done"]
+          resources:
+            requests: { cpu: 50m, memory: 8Mi }
+            limits: { cpu: 150m, memory: 32Mi }

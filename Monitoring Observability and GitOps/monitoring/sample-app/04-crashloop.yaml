@@ -1,0 +1,22 @@
+# Exits every ~20s -> restarts climb -> LibraryPodRestarting fires.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: overdue-mailer
+  namespace: library-obs
+  labels: { app: overdue-mailer }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: overdue-mailer }
+  template:
+    metadata:
+      labels: { app: overdue-mailer }
+    spec:
+      containers:
+        - name: mailer
+          image: busybox:1.36
+          command: ["sh", "-c", "echo 'sending overdue reminders'; sleep 20; echo 'ERROR smtp relay unreachable, exiting' >&2; exit 1"]
+          resources:
+            requests: { cpu: 10m, memory: 8Mi }
+            limits: { cpu: 50m, memory: 32Mi }

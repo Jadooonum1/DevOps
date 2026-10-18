@@ -1,0 +1,24 @@
+# Running but never Ready (readiness probe path does not exist) -> LibraryPodNotReady fires.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reader-web
+  namespace: library-obs
+  labels: { app: reader-web }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: reader-web }
+  template:
+    metadata:
+      labels: { app: reader-web }
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          readinessProbe:
+            httpGet: { path: /ready, port: 80 }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }

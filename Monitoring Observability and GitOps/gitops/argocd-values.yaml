@@ -1,0 +1,17 @@
+# Small, non-HA Argo CD for a laptop cluster.
+# helm install argocd argo/argo-cd -n argocd --create-namespace -f gitops/argocd-values.yaml
+dex:
+  enabled: false            # no SSO; log in with the generated admin password
+notifications:
+  enabled: false
+applicationSet:
+  replicas: 1
+redis:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+configs:
+  params:
+    server.insecure: true   # plain HTTP behind kubectl port-forward
+  cm:
+    # Poll Git every 60s instead of the default 120s(+jitter), so pushes show up sooner.
+    timeout.reconciliation: 60s

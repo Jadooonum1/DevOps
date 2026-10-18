@@ -1,0 +1,61 @@
+# catalog-api stand-in: podinfo exposes Prometheus metrics on /metrics
+# (http_requests_total{status}, http_request_duration_seconds histogram) and can
+# return any status code via /status/<code>, which the traffic generator uses.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-api
+  namespace: library-obs
+  labels: { app: catalog-api }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: catalog-api }
+  template:
+    metadata:
+      labels: { app: catalog-api }
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/stefanprodan/podinfo:6.7.1
+          command: ["./podinfo", "--port=9898", "--level=info", "--ui-message=Library catalogue API"]
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { cpu: 200m, memory: 96Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-api
+  namespace: library-obs
+  labels: { app: catalog-api }
+spec:
+  selector: { app: catalog-api }
+  ports:
+    - name: http
+      port: 9898
+      targetPort: http
+---
+# Tells the Prometheus Operator to scrape every endpoint of the Service above.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: catalog-api
+  namespace: library-obs
+  labels: { app: catalog-api }
+spec:
+  selector:
+    matchLabels: { app: catalog-api }
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

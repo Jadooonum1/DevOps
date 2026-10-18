@@ -1,0 +1,32 @@
+# Desired state of reader-web. Change this file in Git (replicas, image tag, page text)
+# and Argo CD applies it; change it with kubectl and Argo CD puts it back.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reader-web
+  namespace: library-gitops
+  labels:
+    app: reader-web
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: reader-web
+  template:
+    metadata:
+      labels:
+        app: reader-web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.26-alpine
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
