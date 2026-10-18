@@ -1,0 +1,23 @@
+# Liveness probe points at a path that does not exist -> 404 -> kubelet kills the
+# container every ~30s -> RESTARTS climbs -> CrashLoopBackOff.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: loan-service-liveness-broken
+  namespace: library-probes
+  labels:
+    app: loan-service
+spec:
+  containers:
+    - name: loans
+      image: nginx:1.27-alpine
+      ports:
+        - containerPort: 80
+      livenessProbe:
+        httpGet: { path: /healthz, port: 80 }   # nginx has no /healthz
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        failureThreshold: 3
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

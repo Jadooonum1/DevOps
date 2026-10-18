@@ -1,0 +1,22 @@
+# emptyDir backed by RAM (tmpfs). Writes count against the container's memory limit.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: search-cache
+  namespace: library-storage
+spec:
+  volumes:
+    - name: cache
+      emptyDir:
+        medium: Memory
+        sizeLimit: 32Mi
+  containers:
+    - name: cache
+      image: busybox:1.36
+      command: ["sh", "-c", "df -h /cache; dd if=/dev/zero of=/cache/index.bin bs=1M count=10; ls -lh /cache; sleep 3600"]
+      volumeMounts:
+        - name: cache
+          mountPath: /cache
+      resources:
+        requests: { cpu: 10m, memory: 32Mi }
+        limits: { cpu: 50m, memory: 96Mi }

@@ -1,0 +1,24 @@
+# Same slow app, but the startup budget is 5 * 4 = 20s < 40s boot time.
+# The kubelet kills it before it ever listens: restart loop, never Ready.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: index-builder-too-short
+  namespace: library-probes
+spec:
+  containers:
+    - name: indexer
+      image: busybox:1.36
+      command: ["sh", "-c", "echo loading index...; sleep 40; mkdir -p /www; echo ready > /www/index.html; exec httpd -f -p 8080 -h /www"]
+      ports:
+        - containerPort: 8080
+      startupProbe:
+        httpGet: { path: /, port: 8080 }
+        periodSeconds: 5
+        failureThreshold: 4
+      livenessProbe:
+        httpGet: { path: /, port: 8080 }
+        periodSeconds: 10
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

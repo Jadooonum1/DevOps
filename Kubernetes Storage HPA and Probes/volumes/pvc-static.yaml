@@ -1,0 +1,16 @@
+# Claim that binds to the static PV above (same class, matching label, size fits).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: catalogue-archive
+  namespace: library-storage
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+  selector:
+    matchLabels:
+      volume: catalogue-archive

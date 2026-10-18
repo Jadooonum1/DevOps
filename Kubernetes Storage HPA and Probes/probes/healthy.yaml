@@ -1,0 +1,51 @@
+# reader-web with all three probes configured correctly.
+# startup  -> gives the container time to boot before the others start counting
+# liveness -> restart the container if it stops answering
+# readiness-> only send Service traffic when it answers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reader-web
+  namespace: library-probes
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: reader-web
+  template:
+    metadata:
+      labels:
+        app: reader-web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          startupProbe:
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 2
+            failureThreshold: 15
+          livenessProbe:
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 5
+            failureThreshold: 2
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reader-web
+  namespace: library-probes
+spec:
+  selector:
+    app: reader-web
+  ports:
+    - port: 80
+      targetPort: 80

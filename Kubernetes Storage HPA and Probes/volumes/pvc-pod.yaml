@@ -1,0 +1,22 @@
+# Writes a line into the claimed volume on every start; delete and re-create the Pod
+# and the earlier lines are still there.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: archive-writer
+  namespace: library-storage
+spec:
+  volumes:
+    - name: archive
+      persistentVolumeClaim:
+        claimName: catalogue-archive
+  containers:
+    - name: writer
+      image: busybox:1.36
+      command: ["sh", "-c", "echo \"archived by $(hostname) at $(date -u)\" >> /archive/history.txt; cat /archive/history.txt; sleep 3600"]
+      volumeMounts:
+        - name: archive
+          mountPath: /archive
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

@@ -1,0 +1,28 @@
+# Dynamic provisioning: no PV is written by hand; the StorageClass creates one.
+# "standard" is Minikube's default class (reclaimPolicy Delete).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: member-photos
+  namespace: library-storage
+spec:
+  storageClassName: standard
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 256Mi
+---
+# Same request against the Retain class, to compare what happens on delete.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: member-photos-retained
+  namespace: library-storage
+spec:
+  storageClassName: library-retain
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 256Mi

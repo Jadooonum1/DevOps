@@ -1,0 +1,23 @@
+# hostPath mounts a directory from the node. Data outlives the Pod but is tied to that node.
+# On Minikube the path lives inside the minikube node container/VM (check with `minikube ssh`).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scanner-agent
+  namespace: library-storage
+spec:
+  volumes:
+    - name: node-dir
+      hostPath:
+        path: /tmp/library-scans
+        type: DirectoryOrCreate
+  containers:
+    - name: agent
+      image: busybox:1.36
+      command: ["sh", "-c", "echo \"scan from $(hostname) at $(date -u)\" >> /scans/scans.log; sleep 3600"]
+      volumeMounts:
+        - name: node-dir
+          mountPath: /scans
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

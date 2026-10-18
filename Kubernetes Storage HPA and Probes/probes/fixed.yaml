@@ -1,0 +1,42 @@
+# Both broken Pods corrected: liveness checks "/" and readiness checks port 80.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: loan-service-liveness-fixed
+  namespace: library-probes
+  labels:
+    app: loan-service
+spec:
+  containers:
+    - name: loans
+      image: nginx:1.27-alpine
+      ports:
+        - containerPort: 80
+      livenessProbe:
+        httpGet: { path: /, port: 80 }
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        failureThreshold: 3
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: reader-web-ready
+  namespace: library-probes
+  labels:
+    app: reader-web-canary
+spec:
+  containers:
+    - name: web
+      image: nginx:1.27-alpine
+      ports:
+        - containerPort: 80
+      readinessProbe:
+        tcpSocket: { port: 80 }
+        periodSeconds: 5
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

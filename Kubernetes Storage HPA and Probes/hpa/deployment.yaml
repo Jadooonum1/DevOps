@@ -1,0 +1,37 @@
+# catalog-api stand-in: registry.k8s.io/hpa-example is a tiny PHP page that burns CPU
+# on every request, which makes CPU-based autoscaling easy to observe.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: library-hpa
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-api
+  namespace: library-hpa
+  labels:
+    app: catalog-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalog-api
+  template:
+    metadata:
+      labels:
+        app: catalog-api
+    spec:
+      containers:
+        - name: api
+          image: registry.k8s.io/hpa-example:latest
+          ports:
+            - containerPort: 80
+          # The HPA computes utilisation as usage / request, so a CPU request is mandatory.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 32Mi
+            limits:
+              cpu: 300m
+              memory: 128Mi

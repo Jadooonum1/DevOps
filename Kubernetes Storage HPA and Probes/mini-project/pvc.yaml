@@ -1,0 +1,14 @@
+# Holds the shelf page and the visit log. RWO is fine on single-node Minikube because
+# every replica lands on the same node; a multi-node cluster would need RWX storage.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bookshelf-data
+  namespace: library
+spec:
+  storageClassName: standard
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 256Mi

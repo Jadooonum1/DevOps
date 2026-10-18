@@ -1,0 +1,18 @@
+# Static provisioning: an admin creates the PV by hand.
+# storageClassName "manual" keeps the default provisioner from grabbing the claim.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: catalogue-archive-pv
+  labels:
+    volume: catalogue-archive
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath:
+    path: /tmp/catalogue-archive
+    type: DirectoryOrCreate

@@ -1,0 +1,25 @@
+# Simulates an app that needs ~40s to load the book index before it listens.
+# Startup budget = periodSeconds * failureThreshold = 5 * 12 = 60s, which is enough.
+# Liveness only starts once the startup probe has succeeded.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: index-builder-ok
+  namespace: library-probes
+spec:
+  containers:
+    - name: indexer
+      image: busybox:1.36
+      command: ["sh", "-c", "echo loading index...; sleep 40; mkdir -p /www; echo ready > /www/index.html; exec httpd -f -p 8080 -h /www"]
+      ports:
+        - containerPort: 8080
+      startupProbe:
+        httpGet: { path: /, port: 8080 }
+        periodSeconds: 5
+        failureThreshold: 12
+      livenessProbe:
+        httpGet: { path: /, port: 8080 }
+        periodSeconds: 10
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

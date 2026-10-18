@@ -1,0 +1,33 @@
+# The container is healthy but its readiness probe checks the wrong port.
+# It is never restarted, but it never becomes Ready, so the Service has no endpoints.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: reader-web-unready
+  namespace: library-probes
+  labels:
+    app: reader-web-canary
+spec:
+  containers:
+    - name: web
+      image: nginx:1.27-alpine
+      ports:
+        - containerPort: 80
+      readinessProbe:
+        tcpSocket: { port: 8080 }   # nothing listens on 8080
+        periodSeconds: 5
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reader-web-canary
+  namespace: library-probes
+spec:
+  selector:
+    app: reader-web-canary
+  ports:
+    - port: 80
+      targetPort: 80

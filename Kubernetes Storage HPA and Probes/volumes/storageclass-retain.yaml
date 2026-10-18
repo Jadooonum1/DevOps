@@ -1,0 +1,9 @@
+# A second StorageClass using Minikube's hostpath provisioner but with Retain,
+# so a deleted claim leaves its PV (and data) behind in "Released" state.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: library-retain
+provisioner: k8s.io/minikube-hostpath
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
