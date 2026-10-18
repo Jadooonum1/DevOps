@@ -1,0 +1,43 @@
+# catalog-api v2. Only the version label, change-cause and response text differ from v1,
+# which is enough to change the Pod template hash and trigger a rolling update.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-api
+  namespace: library
+  labels:
+    app: catalog-api
+  annotations:
+    kubernetes.io/change-cause: "v2: adds e-book titles"
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: catalog-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # at most one extra Pod during the update
+      maxUnavailable: 0    # never drop below 3 ready Pods
+  template:
+    metadata:
+      labels:
+        app: catalog-api
+        version: v2
+    spec:
+      containers:
+        - name: catalog-api
+          image: hashicorp/http-echo:1.0.0
+          args: ["-listen=:5678", "-text=catalog-api v2 - 1200 titles + 300 e-books"]
+          ports:
+            - name: http
+              containerPort: 5678
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 32Mi }

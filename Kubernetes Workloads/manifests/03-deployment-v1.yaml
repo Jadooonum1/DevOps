@@ -1,0 +1,42 @@
+# catalog-api v1. The Deployment creates a ReplicaSet, which creates the Pods.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-api
+  namespace: library
+  labels:
+    app: catalog-api
+  annotations:
+    kubernetes.io/change-cause: "v1: initial release"
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: catalog-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # at most one extra Pod during the update
+      maxUnavailable: 0    # never drop below 3 ready Pods
+  template:
+    metadata:
+      labels:
+        app: catalog-api
+        version: v1
+    spec:
+      containers:
+        - name: catalog-api
+          image: hashicorp/http-echo:1.0.0
+          args: ["-listen=:5678", "-text=catalog-api v1 - 1200 titles"]
+          ports:
+            - name: http
+              containerPort: 5678
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 32Mi }

@@ -1,0 +1,19 @@
+# A bare Pod. Nothing owns it, so nothing replaces it if it is deleted or its node dies.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: catalog-api-standalone
+  namespace: library
+  labels:
+    app: catalog-api-standalone
+spec:
+  containers:
+    - name: catalog-api
+      image: hashicorp/http-echo:1.0.0
+      args: ["-listen=:5678", "-text=catalog-api (standalone pod)"]
+      ports:
+        - name: http
+          containerPort: 5678
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 32Mi }

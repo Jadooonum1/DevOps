@@ -1,0 +1,34 @@
+# Keeps exactly `replicas` Pods matching the selector alive.
+# The selector must match the template labels, otherwise the API server rejects it.
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: loan-service-rs
+  namespace: library
+  labels:
+    app: loan-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: loan-service
+  template:
+    metadata:
+      labels:
+        app: loan-service
+    spec:
+      containers:
+        - name: loan-service
+          image: hashicorp/http-echo:1.0.0
+          args: ["-listen=:5678", "-text=loan-service from $(POD_NAME)"]
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: http
+              containerPort: 5678
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 32Mi }
