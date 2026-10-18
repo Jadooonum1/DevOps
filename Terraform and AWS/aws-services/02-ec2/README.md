@@ -46,7 +46,9 @@ after terminate: terminated
 LocalStack's EC2 is a mock: no VM boots, so user data doesn't execute and SSH is not possible. On real AWS use
 the latest Amazon Linux AMI and `ssh -i reader-web-key.pem ec2-user@<public-ip>`.
 
-## Screenshots to capture
+## Screenshots
 
-`screenshots/ec2-prereqs.png` (AMI, key pair, security group), `screenshots/ec2-lifecycle.png` (instance table,
-volume, state changes).
+The whole lifecycle in one run of `commands.sh` (exit 0): AMI lookup, security-group rules, the launched instance, the
+attached gp3 volume, stop/start/terminate, and cleanup (the generated `.pem` file is deleted at the end):
+
+![EC2 commands.sh output](screenshots/01-ec2-commands.png)

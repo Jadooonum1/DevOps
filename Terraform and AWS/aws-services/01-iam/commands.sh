@@ -4,9 +4,9 @@ set -euo pipefail
 source ../localstack.env
 
 # --- users, group, customer-managed policy --------------------------------
-awsl iam create-group --group-name library-staff
+awsl iam create-group --group-name library-staff --query Group.Arn --output text
 for u in asha-librarian ravi-cataloguer; do
-  awsl iam create-user --user-name "$u" --tags Key=team,Value=library
+  awsl iam create-user --user-name "$u" --tags Key=team,Value=library --query User.Arn --output text
   awsl iam add-user-to-group --group-name library-staff --user-name "$u"
 done
 
@@ -25,9 +25,11 @@ awsl iam list-group-policies --group-name library-staff
 
 # --- a role that EC2 instances can assume ----------------------------------
 awsl iam create-role --role-name bookshelf-ec2-role \
-  --assume-role-policy-document file://policies/ec2-assume-role-trust.json
+  --assume-role-policy-document file://policies/ec2-assume-role-trust.json \
+  --query 'Role.[Arn,AssumeRolePolicyDocument.Statement[0].Principal.Service]' --output text
 awsl iam attach-role-policy --role-name bookshelf-ec2-role --policy-arn "$POLICY_ARN"
-awsl iam create-instance-profile --instance-profile-name bookshelf-ec2-profile
+awsl iam create-instance-profile --instance-profile-name bookshelf-ec2-profile \
+  --query InstanceProfile.Arn --output text
 awsl iam add-role-to-instance-profile --instance-profile-name bookshelf-ec2-profile \
   --role-name bookshelf-ec2-role
 awsl iam get-instance-profile --instance-profile-name bookshelf-ec2-profile \

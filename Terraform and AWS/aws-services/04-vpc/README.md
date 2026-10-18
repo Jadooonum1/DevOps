@@ -43,7 +43,10 @@ The NACL table shows the inbound HTTP rule and the outbound ephemeral-port rule 
 `*` deny rules; LocalStack omits them). The script creates the NACL to show the rules but does not associate it
 with the subnet.
 
-## Screenshots to capture
+## Screenshots
 
-`screenshots/vpc-cidr.png` (cidr_plan output), `screenshots/vpc-subnets.png`, `screenshots/vpc-routing.png`
-(route table + NACL).
+`commands.sh` (exit 0): the CIDR plan from `cidr_plan.py` (AWS reserves 5 addresses per subnet, so a /24 has 251 usable),
+the public and private subnets, the public route table (`local` + `0.0.0.0/0 -> igw`), the NACL entries (protocol 6 = TCP),
+and the reverse-order cleanup:
+
+![VPC commands.sh output](screenshots/01-vpc-commands.png)

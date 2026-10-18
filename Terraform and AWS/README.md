@@ -51,6 +51,13 @@ cd ../05-dynamodb-rds && bash commands.sh
 All five scripts were run end-to-end against LocalStack 4.9.2 while writing this (exit code 0); their sub-READMEs
 contain trimmed real output. RDS is not part of the free LocalStack image, so `rds-commands.sh` is reference only.
 
+They were run again on 18 Oct 2026 (LocalStack 4.9.2, all exit 0); the screenshots live next to each script:
+[IAM](aws-services/01-iam/README.md#screenshots), [EC2](aws-services/02-ec2/README.md#screenshots),
+[S3](aws-services/03-s3/README.md#screenshots), [VPC](aws-services/04-vpc/README.md#screenshots),
+[DynamoDB / RDS](aws-services/05-dynamodb-rds/README.md#screenshots). For example the VPC run:
+
+![04-vpc commands.sh](aws-services/04-vpc/screenshots/01-vpc-commands.png)
+
 ## Part 2 - Terraform S3 demo
 
 Terraform concepts in brief:
@@ -104,10 +111,32 @@ Plan: 1 to add, 0 to change, 0 to destroy.
 Destroy complete! Resources: 6 destroyed.
 ```
 
-## Screenshots to capture (`screenshots/`)
+## Screenshots (terraform-s3-demo against LocalStack 4.9.2)
 
-`tf-init.png`, `tf-fmt-validate.png`, `tf-plan.png`, `tf-apply.png`, `tf-state-output.png`,
-`tf-verify-cli.png` (aws s3 ls), `tf-change-diff.png`, `tf-drift.png`, `tf-destroy.png`.
+`terraform init` installs the provider version pinned in `.terraform.lock.hcl`; `fmt -check` and `validate` are clean:
+
+![terraform init](screenshots/01-tf-init.png)
+
+![terraform fmt and validate](screenshots/02-tf-fmt-validate.png)
+
+The plan: 6 resources to add (the noisy `(known after apply)` attribute lines are filtered out with `grep -v`):
+
+![terraform plan](screenshots/03-tf-plan.png)
+
+![terraform apply](screenshots/04-tf-apply.png)
+
+State, outputs, and the same bucket seen through the AWS CLI (objects, versioning, default tags):
+
+![state list, output, aws s3 ls](screenshots/05-tf-state-output-verify.png)
+
+Changing a variable gives an in-place update (`~`), deleting an object with the CLI is detected as drift and repaired, and
+`plan -detailed-exitcode` returns 0 once config, state and reality agree again:
+
+![in-place change](screenshots/06-tf-change-diff.png)
+
+![drift detection](screenshots/07-tf-drift.png)
+
+![terraform destroy and cleanup](screenshots/08-tf-destroy.png)
 
 ## Cleanup
 

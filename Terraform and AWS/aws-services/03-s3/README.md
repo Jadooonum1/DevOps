@@ -42,7 +42,14 @@ Clean Code - first edition blurb
 { "versions": 1, "deleteMarkers": 1 }
 ```
 
-## Screenshots to capture
+## Screenshots
 
-`screenshots/s3-versioning.png` (version table + restored text), `screenshots/s3-lifecycle-policy.png`
-(lifecycle rule IDs and bucket policy).
+`commands.sh` (exit 0): versioning and default encryption, two versions of the blurb, a `STANDARD_IA` object, the lifecycle
+rule IDs, the TLS-only bucket policy, the restored first-edition text and the delete marker:
+
+![S3 commands.sh output](screenshots/01-s3-commands.png)
+
+After the restore the blurb has three versions (the copy is a new latest version); the deleted scan is only hidden behind
+a delete marker. `cleanup.sh` deletes every version and marker, then the bucket:
+
+![S3 versions, lifecycle rules and cleanup](screenshots/02-s3-versions-cleanup.png)

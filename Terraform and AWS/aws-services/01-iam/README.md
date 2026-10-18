@@ -51,7 +51,13 @@ $ awsl iam get-instance-profile --instance-profile-name bookshelf-ec2-profile --
 Note: LocalStack community stores IAM objects but does not enforce policies, so "access denied" behaviour has to
 be shown on real AWS (or with the IAM policy simulator in the console).
 
-## Screenshots to capture
+## Screenshots
 
-`screenshots/iam-group-users.png` (get-group + attached policies), `screenshots/iam-role-profile.png`
-(instance profile + assume-role output).
+`commands.sh` against LocalStack 4.9.2 (exit 0). The create calls print only the new ARN:
+
+![IAM commands.sh output](screenshots/01-iam-commands.png)
+
+Inspecting the result (the policy is attached to the group and to the role, the inline policy is an explicit Deny), then
+`cleanup.sh` removes everything. `ListUsers` never returns tags (that needs `list-user-tags`), hence `None`:
+
+![IAM inspection and cleanup](screenshots/02-iam-inspect-cleanup.png)

@@ -56,7 +56,14 @@ An error occurred (InternalFailure) when calling the DescribeDBInstances operati
 is either not included in your current license plan or has not yet been emulated by LocalStack.
 ```
 
-## Screenshots to capture
+## Screenshots
 
-`screenshots/dynamodb.png` (query, GSI query, conditional failure), `screenshots/rds.png` (either the Pro/real
-AWS run of `rds-commands.sh` or the "not included" message above).
+`commands.sh` (exit 0): table + GSI, the newest-first query, the GSI query, the conditional update succeeding once and then
+failing with `ConditionalCheckFailedException`, and the filtered scan (1 match out of 3 items read):
+
+![DynamoDB commands.sh output](screenshots/01-dynamodb-commands.png)
+
+`rds-commands.sh` could not run here: it first checks for the two subnet variables, and with them set the very first RDS
+call is refused by the free LocalStack image. It needs LocalStack Pro or a real AWS account:
+
+![RDS not available on LocalStack community](screenshots/02-rds-not-in-community.png)
