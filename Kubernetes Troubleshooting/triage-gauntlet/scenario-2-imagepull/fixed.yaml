@@ -1,0 +1,14 @@
+# Fixed: a real, public image.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: barcode-printer
+  labels: { gauntlet: "true", app: barcode-printer }
+spec:
+  containers:
+    - name: printer
+      image: busybox:1.36
+      command: ["sh", "-c", "echo printing labels; sleep 3600"]
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

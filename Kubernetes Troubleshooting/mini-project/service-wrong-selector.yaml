@@ -1,0 +1,14 @@
+# Challenge: same Service, but the selector also requires tier=frontend.
+# Pods are labelled tier=web, so no Pod matches -> EndpointSlice is empty.
+apiVersion: v1
+kind: Service
+metadata:
+  name: reader-web
+spec:
+  selector:
+    app: reader-web
+    tier: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

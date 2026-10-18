@@ -1,0 +1,32 @@
+# Fixed: real image tag, and the ConfigMap the Pod expects.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: indexer-settings
+data:
+  BATCH_SIZE: "250"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: isbn-indexer
+  labels: { app: isbn-indexer }
+spec:
+  containers:
+    - name: indexer
+      image: python:3.12-alpine
+      command: ["python", "-c"]
+      args:
+        - |
+          import os, time
+          batch = int(os.environ["BATCH_SIZE"])
+          print(f"indexing ISBNs in batches of {batch}", flush=True)
+          while True:
+              print("indexed batch", flush=True)
+              time.sleep(15)
+      envFrom:
+        - configMapRef:
+            name: indexer-settings
+      resources:
+        requests: { cpu: 20m, memory: 32Mi }
+        limits: { cpu: 100m, memory: 96Mi }

@@ -1,0 +1,14 @@
+# Fixed: memory limit sized for the 100 MiB working set.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: report-builder
+  labels: { gauntlet: "true", app: report-builder }
+spec:
+  containers:
+    - name: report
+      image: python:3.12-alpine
+      command: ["python", "-c", "import time; buf = bytearray(100 * 1024 * 1024); print('report built', flush=True); time.sleep(3600)"]
+      resources:
+        requests: { cpu: 50m, memory: 192Mi }
+        limits: { cpu: 200m, memory: 192Mi }

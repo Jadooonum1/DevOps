@@ -1,0 +1,27 @@
+# isbn-indexer has two stacked faults; fixing the first reveals the second.
+#  1. image tag typo            -> ErrImagePull / ImagePullBackOff
+#  2. env from a ConfigMap that does not exist -> CreateContainerConfigError
+apiVersion: v1
+kind: Pod
+metadata:
+  name: isbn-indexer
+  labels: { app: isbn-indexer }
+spec:
+  containers:
+    - name: indexer
+      image: python:3.12-alpne
+      command: ["python", "-c"]
+      args:
+        - |
+          import os, time
+          batch = int(os.environ["BATCH_SIZE"])
+          print(f"indexing ISBNs in batches of {batch}", flush=True)
+          while True:
+              print("indexed batch", flush=True)
+              time.sleep(15)
+      envFrom:
+        - configMapRef:
+            name: indexer-settings
+      resources:
+        requests: { cpu: 20m, memory: 32Mi }
+        limits: { cpu: 100m, memory: 96Mi }

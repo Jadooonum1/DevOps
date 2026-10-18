@@ -1,0 +1,15 @@
+# Typo in the executable name: the runtime cannot exec "ngnix"
+# -> StartError / RunContainerError, exit code 128, then CrashLoopBackOff.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: opac-frontend
+  labels: { issue: "10" }
+spec:
+  containers:
+    - name: web
+      image: nginx:1.27-alpine
+      command: ["ngnix", "-g", "daemon off;"]
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

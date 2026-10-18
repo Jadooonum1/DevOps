@@ -1,0 +1,21 @@
+# Mounts a Secret that was never created -> stuck in ContainerCreating with FailedMount.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: loan-service
+  labels: { issue: "05" }
+spec:
+  volumes:
+    - name: db-creds
+      secret:
+        secretName: loan-db-credentials
+  containers:
+    - name: app
+      image: nginx:1.27-alpine
+      volumeMounts:
+        - name: db-creds
+          mountPath: /etc/loan-db
+          readOnly: true
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

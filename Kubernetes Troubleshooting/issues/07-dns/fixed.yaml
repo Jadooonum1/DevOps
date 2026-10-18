@@ -1,0 +1,39 @@
+# Fixed: default dnsPolicy (ClusterFirst) -> /etc/resolv.conf points at CoreDNS
+# with the namespace search domains, so "shelf-target" resolves.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shelf-target
+  labels: { app: shelf-target, issue: "07" }
+spec:
+  containers:
+    - name: web
+      image: nginx:1.27-alpine
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shelf-target
+  labels: { issue: "07" }
+spec:
+  selector: { app: shelf-target }
+  ports:
+    - port: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns-client
+  labels: { issue: "07" }
+spec:
+  dnsPolicy: ClusterFirst
+  containers:
+    - name: client
+      image: busybox:1.36
+      command: ["sh", "-c", "while true; do nslookup -timeout=2 shelf-target || echo LOOKUP FAILED; sleep 5; done"]
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

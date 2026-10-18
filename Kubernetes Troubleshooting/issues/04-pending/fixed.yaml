@@ -1,0 +1,13 @@
+# Fixed: a request the node can satisfy.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: loan-report
+  labels: { issue: "04" }
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27-alpine
+      resources:
+        requests: { cpu: 50m, memory: 16Mi }
+        limits: { cpu: 200m, memory: 64Mi }

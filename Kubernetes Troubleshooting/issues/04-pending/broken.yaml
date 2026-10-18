@@ -1,0 +1,13 @@
+# Requests 64 CPUs; no node is that big -> Pending with FailedScheduling 'Insufficient cpu'.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: loan-report
+  labels: { issue: "04" }
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27-alpine
+      resources:
+        requests: { cpu: 64, memory: 16Mi }
+        limits: { cpu: 64, memory: 64Mi }

@@ -1,0 +1,14 @@
+# fine-calculator needs /config/fines.conf; nothing provides it -> exits 2 -> CrashLoopBackOff.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fine-calculator
+  labels: { gauntlet: "true", app: fine-calculator }
+spec:
+  containers:
+    - name: calc
+      image: busybox:1.36
+      command: ["sh", "-c", "[ -f /config/fines.conf ] || { echo 'ERROR: /config/fines.conf not found'; exit 2; }; . /config/fines.conf; echo \"daily fine = $DAILY_FINE\"; sleep 3600"]
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

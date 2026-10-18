@@ -1,0 +1,30 @@
+# Fixed: the config file is delivered by a ConfigMap mounted at /config.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fine-rules
+data:
+  fines.conf: |
+    DAILY_FINE=5
+    MAX_FINE=200
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fine-calculator
+  labels: { gauntlet: "true", app: fine-calculator }
+spec:
+  volumes:
+    - name: rules
+      configMap:
+        name: fine-rules
+  containers:
+    - name: calc
+      image: busybox:1.36
+      command: ["sh", "-c", "[ -f /config/fines.conf ] || { echo 'ERROR: /config/fines.conf not found'; exit 2; }; . /config/fines.conf; echo \"daily fine = $DAILY_FINE\"; sleep 3600"]
+      volumeMounts:
+        - name: rules
+          mountPath: /config
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

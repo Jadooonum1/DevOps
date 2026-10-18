@@ -1,0 +1,51 @@
+# Practice workload for the core troubleshooting commands.
+# Two replicas that log a checkout event every 4s and serve a tiny status page on 8080.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: circulation-desk
+  labels:
+    app: circulation-desk
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: circulation-desk
+  template:
+    metadata:
+      labels:
+        app: circulation-desk
+    spec:
+      containers:
+        - name: desk
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              mkdir -p /www && echo "desk $HOSTNAME open" > /www/index.html
+              httpd -p 8080 -h /www
+              n=0
+              while true; do
+                n=$((n+1))
+                echo "$(date -u +%T) checkout #$n by member-$((n % 7 + 100))"
+                sleep 4
+              done
+          ports:
+            - containerPort: 8080
+          env:
+            - name: BRANCH
+              value: central
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 50m, memory: 32Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: circulation-desk
+spec:
+  selector:
+    app: circulation-desk
+  ports:
+    - port: 80
+      targetPort: 8080

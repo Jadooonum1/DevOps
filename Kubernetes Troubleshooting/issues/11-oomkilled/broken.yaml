@@ -1,0 +1,22 @@
+# The report job holds ~150 MiB in memory but the limit is 64 Mi
+# -> the kernel OOM killer stops it: reason OOMKilled, exit code 137.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: overdue-report
+  labels: { issue: "11" }
+spec:
+  containers:
+    - name: report
+      image: python:3.12-alpine
+      command: ["python", "-c"]
+      args:
+        - |
+          import time
+          print("building overdue report...", flush=True)
+          rows = bytearray(150 * 1024 * 1024)
+          print("report ready, holding it in memory", flush=True)
+          time.sleep(3600)
+      resources:
+        requests: { cpu: 50m, memory: 64Mi }
+        limits: { cpu: 200m, memory: 64Mi }

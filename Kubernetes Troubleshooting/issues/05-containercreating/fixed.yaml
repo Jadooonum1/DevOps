@@ -1,0 +1,30 @@
+# Fixed: the Secret exists before the Pod mounts it (demo values only, not real credentials).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: loan-db-credentials
+type: Opaque
+stringData:
+  username: loans_app
+  password: change-me-in-lab
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: loan-service
+  labels: { issue: "05" }
+spec:
+  volumes:
+    - name: db-creds
+      secret:
+        secretName: loan-db-credentials
+  containers:
+    - name: app
+      image: nginx:1.27-alpine
+      volumeMounts:
+        - name: db-creds
+          mountPath: /etc/loan-db
+          readOnly: true
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

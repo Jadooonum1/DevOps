@@ -1,0 +1,25 @@
+# Fixed: CATALOG_URL is provided, the guard passes and the loop runs.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: catalog-sync
+  labels: { issue: "01" }
+spec:
+  containers:
+    - name: sync
+      image: busybox:1.36
+      command: ["sh", "-c"]
+      args:
+        - |
+          if [ -z "$CATALOG_URL" ]; then
+            echo "FATAL: CATALOG_URL is not set, cannot sync catalogue" >&2
+            exit 1
+          fi
+          echo "syncing from $CATALOG_URL"
+          while true; do echo "sync ok $(date -u +%T)"; sleep 30; done
+      env:
+        - name: CATALOG_URL
+          value: "http://catalog-api.library.svc.cluster.local"
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

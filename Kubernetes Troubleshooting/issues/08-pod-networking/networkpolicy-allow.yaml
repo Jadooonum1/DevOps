@@ -1,0 +1,16 @@
+# Fix for the second fault: allow only desk-client to reach loan-service on 8080.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-desk-to-loans
+spec:
+  podSelector:
+    matchLabels: { app: loan-service }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: desk-client }
+      ports:
+        - protocol: TCP
+          port: 8080

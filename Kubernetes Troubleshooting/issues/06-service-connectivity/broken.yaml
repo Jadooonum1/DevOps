@@ -1,0 +1,36 @@
+# Pods are Running and Ready, the selector matches, endpoints exist...
+# but the Service forwards to targetPort 8080 while nginx listens on 80 -> connection refused.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-api
+  labels: { issue: "06" }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: catalog-api }
+  template:
+    metadata:
+      labels: { app: catalog-api, issue: "06" }
+    spec:
+      containers:
+        - name: api
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-api
+  labels: { issue: "06" }
+spec:
+  selector: { app: catalog-api }
+  ports:
+    - port: 80
+      targetPort: 8080

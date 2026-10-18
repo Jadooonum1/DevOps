@@ -1,0 +1,13 @@
+# The registry host cannot be resolved (.invalid is a reserved TLD) -> ErrImagePull.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: barcode-scanner
+  labels: { issue: "03" }
+spec:
+  containers:
+    - name: app
+      image: registry.library.invalid/barcode-scanner:1.0
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

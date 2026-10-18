@@ -1,0 +1,16 @@
+# Requires a node labelled vault=rare-books; none exists -> Pending
+# ("didn't match Pod's node affinity/selector").
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rare-books-vault
+  labels: { gauntlet: "true", app: rare-books-vault }
+spec:
+  nodeSelector:
+    vault: rare-books
+  containers:
+    - name: vault
+      image: nginx:1.27-alpine
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

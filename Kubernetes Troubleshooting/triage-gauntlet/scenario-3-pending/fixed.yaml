@@ -1,0 +1,13 @@
+# Fixed: nodeSelector removed. (Alternative: kubectl label node <node> vault=rare-books.)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rare-books-vault
+  labels: { gauntlet: "true", app: rare-books-vault }
+spec:
+  containers:
+    - name: vault
+      image: nginx:1.27-alpine
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

@@ -1,0 +1,9 @@
+# Second fault, applied after the bind fix: default-deny ingress for every Pod in the namespace.
+# Only enforced if the cluster CNI supports NetworkPolicy (e.g. minikube start --cni=calico).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]

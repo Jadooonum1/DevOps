@@ -1,0 +1,13 @@
+# Tag typo: 'alpinee' does not exist on Docker Hub -> ErrImagePull, then ImagePullBackOff.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: reader-web
+  labels: { issue: "02" }
+spec:
+  containers:
+    - name: app
+      image: httpd:2.4-alpinee
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 64Mi }

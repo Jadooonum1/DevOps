@@ -1,0 +1,29 @@
+# Fixed: key name matches the ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: branch-settings
+  labels: { issue: "09" }
+data:
+  BRANCH_CODE: "CENTRAL-01"
+  OPENING_HOURS: "09:00-18:00"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: branch-info
+  labels: { issue: "09" }
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      command: ["sh", "-c", "echo branch=$BRANCH; sleep 3600"]
+      env:
+        - name: BRANCH
+          valueFrom:
+            configMapKeyRef:
+              name: branch-settings
+              key: BRANCH_CODE
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 50m, memory: 32Mi }

@@ -1,0 +1,14 @@
+# Builds a 100 MiB report under a 32Mi limit -> OOMKilled (137), restarts forever.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: report-builder
+  labels: { gauntlet: "true", app: report-builder }
+spec:
+  containers:
+    - name: report
+      image: python:3.12-alpine
+      command: ["python", "-c", "import time; buf = bytearray(100 * 1024 * 1024); print('report built', flush=True); time.sleep(3600)"]
+      resources:
+        requests: { cpu: 50m, memory: 32Mi }
+        limits: { cpu: 200m, memory: 32Mi }

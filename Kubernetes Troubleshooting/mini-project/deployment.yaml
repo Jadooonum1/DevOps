@@ -1,0 +1,29 @@
+# Healthy baseline: reader-web, 3 replicas, labels app=reader-web + tier=web.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reader-web
+  labels: { app: reader-web, tier: web }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: reader-web }
+  template:
+    metadata:
+      labels: { app: reader-web, tier: web }
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 20m, memory: 24Mi }
+            limits: { cpu: 150m, memory: 96Mi }
