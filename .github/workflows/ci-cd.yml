@@ -1,0 +1,99 @@
+name: ci-cd (catalog-api)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "CI-CD GitHub Actions/**"
+      - ".github/workflows/ci-cd.yml"
+  pull_request:
+    paths:
+      - "CI-CD GitHub Actions/**"
+      - ".github/workflows/ci-cd.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: "CI-CD GitHub Actions"
+
+env:
+  IMAGE: catalog-api
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: "CI-CD GitHub Actions/requirements-dev.txt"
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: flake8
+        run: flake8 catalog tests
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: "CI-CD GitHub Actions/requirements-dev.txt"
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: pytest
+        run: pytest --junitxml=test-results.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-py${{ matrix.python-version }}
+          path: "CI-CD GitHub Actions/test-results.xml"
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          docker build --build-arg GIT_SHA="$SHORT_SHA" -t "$IMAGE:$SHORT_SHA" .
+          echo "TAG=$SHORT_SHA" >> "$GITHUB_ENV"
+      - name: Smoke test the container
+        run: |
+          docker run -d --name smoke -p 8000:8000 "$IMAGE:$TAG"
+          for _ in $(seq 1 20); do
+            curl -fsS http://localhost:8000/healthz && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8000/healthz | grep -q '"ok"'
+          curl -fsS http://localhost:8000/books | grep -q 'Clean Code'
+          curl -fsS http://localhost:8000/version | grep -q "$TAG"
+      - name: Container logs
+        if: always()
+        run: docker logs smoke || true
+      - name: Job summary
+        run: |
+          {
+            echo "### catalog-api image"
+            echo "- tag: \`$IMAGE:$TAG\`"
+            echo "- size: $(docker image inspect "$IMAGE:$TAG" --format '{{.Size}}') bytes"
+            echo "- pushed: no (build-and-verify only, no registry secrets required)"
+          } >> "$GITHUB_STEP_SUMMARY"
