@@ -1,0 +1,8 @@
+# Comparison only: the same app built and run in ONE stage.
+# The compiler, Go module cache and Alpine userland all end up in the shipped image.
+FROM golang:1.23-alpine
+WORKDIR /src
+COPY go.mod main.go ./
+RUN CGO_ENABLED=0 go build -o /usr/local/bin/catalog-api .
+EXPOSE 8080
+CMD ["catalog-api"]
