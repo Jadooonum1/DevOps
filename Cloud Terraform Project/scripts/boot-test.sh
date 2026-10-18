@@ -5,6 +5,9 @@
 # reach LocalStack's S3. systemctl is stubbed because containers have no systemd.
 #
 # usage: bash scripts/boot-test.sh            (after terraform apply, LocalStack on :4566)
+#        SERVE_PORT=8088 bash scripts/boot-test.sh   keeps the container running and publishes nginx on
+#        http://localhost:8088/ so the page can be opened in a browser; stop it with
+#        docker rm -f lib-reader-web-boot
 set -euo pipefail
 cd "$(dirname "$0")/../terraform-project"
 
@@ -39,7 +42,22 @@ echo "--- served page ---"
 curl -fsS http://localhost/ | grep -E "<h1>|Served by"
 PREP
 
-docker run --rm --add-host host.docker.internal:host-gateway \
-  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION \
-  -e AWS_ENDPOINT_URL=http://host.docker.internal:4566 \
-  -v "$WORK:/work:ro" amazonlinux:2023 bash /work/prepare.sh
+RUN_ARGS=(--add-host host.docker.internal:host-gateway
+  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION
+  -e AWS_ENDPOINT_URL=http://host.docker.internal:4566)
+
+if [ -z "${SERVE_PORT:-}" ]; then
+  docker run --rm "${RUN_ARGS[@]}" -v "$WORK:/work:ro" amazonlinux:2023 bash /work/prepare.sh
+else
+  # copy the scripts into the container (the temp dir is deleted when this script exits)
+  docker create --name lib-reader-web-boot -p "$SERVE_PORT:80" "${RUN_ARGS[@]}" amazonlinux:2023 \
+    bash -c 'bash /work/prepare.sh && exec sleep infinity' > /dev/null
+  docker cp "$WORK/." lib-reader-web-boot:/work
+  docker start lib-reader-web-boot > /dev/null
+  for _ in $(seq 1 120); do
+    curl -fsS "http://localhost:$SERVE_PORT/" > /dev/null 2>&1 && break
+    sleep 2
+  done
+  docker logs lib-reader-web-boot 2>&1 | tail -4
+  curl -fsS -o /dev/null -w "http://localhost:$SERVE_PORT/ -> HTTP %{http_code}\n" "http://localhost:$SERVE_PORT/"
+fi

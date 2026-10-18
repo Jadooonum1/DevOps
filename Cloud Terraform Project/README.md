@@ -74,79 +74,84 @@ creates billable resources - destroy them afterwards.
 
 ## What happened when I ran it (LocalStack 4.9.2, Terraform 1.16.6, aws provider 5.100.0)
 
-All results below are real, trimmed.
+Everything below was run again on 18 Oct 2026; the screenshots are the real terminal output (some long outputs are
+narrowed with `grep`, which is visible in each command).
 
-**Plan / apply** - `Plan: 22 to add, 0 to change, 0 to destroy.` then
-`Apply complete! Resources: 22 added, 0 changed, 0 destroyed.`
+**Init, fmt, validate** - providers come from the lock file; `fmt -check -recursive` and `validate` are clean.
 
-```
-ami = "ami-760aaa0f (amzn-ami-hvm-2017.09.1.20171103-x86_64-gp2)"
-public_subnets = {
-  "subnet-ba5f3c61532f3e483" = "10.30.1.0/24 (us-east-1a)"
-  "subnet-fcb16ee36d87af00e" = "10.30.2.0/24 (us-east-1b)"
-}
-site_bucket = "reader-web-dev-site-94976c21"
-web_servers = { "reader-web-dev-1" = "54.214.164.169" }
-```
+![terraform init](screenshots/01-init.png)
 
-`terraform state list` showed 26 entries: the 22 managed resources plus 4 data sources
-(`aws_ami`, `aws_availability_zones`, two `aws_iam_policy_document`).
+![fmt and validate](screenshots/02-fmt-validate.png)
 
-**Verifying with the AWS CLI** (`aws --endpoint-url http://localhost:4566 ...`):
+**Plan / apply** - `Plan: 22 to add, 0 to change, 0 to destroy.` then `Apply complete! Resources: 22 added`.
+LocalStack's mock image catalogue has no Amazon Linux 2023, so the AMI is an old Amazon Linux one (see
+`ami_name_pattern` in `terraform.tfvars`).
 
-```
-10.30.1.0/24	us-east-1a	True
-10.30.2.0/24	us-east-1b	True
-reader-web-dev-1	subnet-ba5f...	arn:aws:iam::000000000000:instance-profile/reader-web-dev-web-profile	required
-site/index.html  (723 bytes)
-0.0.0.0/0	igw-cc0821e4a8cb16634
-```
+![plan summary](screenshots/03-plan.png)
 
-i.e. both subnets auto-assign public IPs, the instance carries the instance profile and enforces IMDSv2,
-the site object is in the bucket, and the public route table points `0.0.0.0/0` at the IGW.
+![apply and outputs](screenshots/04-apply.png)
 
-**Boot-testing user_data - and fixing it.** LocalStack never boots a VM, so `scripts/boot-test.sh` fetches the
-user data Terraform attached to the instance (`describe-instance-attribute --attribute userData`), checks it with
-`bash -n`, and runs it as root in an `amazonlinux:2023` container that can reach LocalStack's S3 (systemctl is
-stubbed). The first version of the script used `aws s3 sync ... /usr/share/nginx/html/ --delete`; the boot test
-failed with exit code 2 and
-`warning: Skipping file /usr/share/nginx/html/poweredby.png. File does not exist.` - deleting the stock nginx files
-left a dangling symlink and `aws s3 sync` treats that warning as a failure, which under `set -e` would abort the
-bootstrap before nginx starts. The fix was to clear the directory and use `aws s3 cp --recursive`. Because of
-`user_data_replace_on_change`, the next plan showed:
+`terraform state list` shows 26 entries: the 22 managed resources plus 4 data sources (`aws_ami`,
+`aws_availability_zones`, two `aws_iam_policy_document`). `terraform graph` has 28 edges; the instance depends on the AMI,
+instance profile, internet route, site object, security group and subnets (graphviz is not installed here, so the DOT
+edges are shown as text; `dot -Tpng graph.dot -o graph.png` renders it where graphviz exists).
 
-```
-  # aws_instance.web[0] must be replaced
-      ~ user_data = "6049ed07..." -> "60f6f359..." # forces replacement
-Plan: 1 to add, 0 to change, 1 to destroy.
-```
+![state list and graph edges](screenshots/05-state-graph.png)
 
-and the boot test then passed:
+**Verifying with the AWS CLI** - both subnets auto-assign public IPs, the instance carries the instance profile and
+enforces IMDSv2 (`required`), the site object is in the bucket, all four public-access blocks are on, the public route
+table sends `0.0.0.0/0` to the IGW, and the security group allows 80 from anywhere and 22 only from `admin_cidr`:
 
-```
-user_data: bash syntax OK
-bootstrapping reader-web-dev-1
-reader-web is serving on reader-web-dev-1
-  <h1>Bookshelf - community library catalogue</h1>
-  <footer>Served by reader-web-dev-1 - provisioned with Terraform</footer>
-```
+![CLI verification](screenshots/06-verify-cli.png)
 
-**Scaling out** - `terraform plan -var instance_count=2` -> `aws_instance.web[1] will be created`,
-`Plan: 1 to add, 0 to change, 0 to destroy.`; after apply the second server landed in the second subnet
-(`count.index % public_subnet_count`) and `web_servers` listed `reader-web-dev-1` and `reader-web-dev-2`.
+**Boot-testing user_data.** LocalStack never boots a VM, so `scripts/boot-test.sh` fetches the user data Terraform
+attached to the instance (`describe-instance-attribute --attribute userData`), checks it with `bash -n`, and runs it as
+root in an `amazonlinux:2023` container that can reach LocalStack's S3 (systemctl is stubbed). dnf installs nginx and the
+AWS CLI, the page is copied from the private bucket, stamped with the server name, and served:
 
-**Remote state** - created bucket `reader-web-tfstate`, copied `backend.tf.example` to `backend.tf`, and ran
-`terraform init -migrate-state -force-copy -backend-config=localstack.s3.tfbackend`. The state object appeared at
-`s3://reader-web-tfstate/cloud-terraform-project/dev.tfstate` and a follow-up
-`terraform plan -detailed-exitcode` exited 0 (no changes), proving the remote copy matched reality.
+![boot test passing](screenshots/07-boot-test-pass.png)
 
-**Destroy** - `Destroy complete! Resources: 23 destroyed.` and no running instances were left. The state bucket,
-`.terraform/`, `backend.tf` and all state files were then removed; none are committed.
+With `SERVE_PORT=18088 bash scripts/boot-test.sh` the container keeps running and publishes nginx, so the page the
+instance would serve can be opened in a browser:
+
+![the site served by the booted user_data](screenshots/08-site-served.png)
+
+**The bug the boot test found.** The first version of the script used `aws s3 sync ... /usr/share/nginx/html/ --delete`.
+Deleting the stock nginx files leaves the `poweredby.png` symlink dangling, `aws s3 sync` prints
+`warning: Skipping file ... File does not exist.` and exits 2, and under `set -e` the bootstrap would stop before nginx
+starts. To show it, the old line was put back temporarily: because of `user_data_replace_on_change` the plan replaces the
+instance, and the boot test fails with exit code 2:
+
+![boot test failing with the old sync line](screenshots/09-boot-test-fail.png)
+
+The fix (clear the directory, then `aws s3 cp --recursive`) was restored from git; the plan replaces the instance again
+and the boot test passes:
+
+![fix restored, instance replaced, boot test passes](screenshots/10-fix-replace-pass.png)
+
+**Scaling out** - `-var instance_count=2` adds only `aws_instance.web[1]`; it lands in the second subnet/AZ
+(`count.index % public_subnet_count`):
+
+![scale out to two servers](screenshots/11-scale-out.png)
+
+**Remote state** - create `reader-web-tfstate`, copy `backend.tf.example` to `backend.tf`, and
+`terraform init -migrate-state -force-copy -backend-config=localstack.s3.tfbackend`. The state object appears at
+`s3://reader-web-tfstate/cloud-terraform-project/dev.tfstate` (the local file is left empty), and
+`terraform plan -detailed-exitcode` exits 0, so the remote copy matches reality:
+
+![remote state migration](screenshots/12-remote-state.png)
+
+**Destroy** - `Destroy complete! Resources: 23 destroyed.`, no running instances left; then the state bucket,
+`.terraform/`, `backend.tf` and the state files are removed (none are committed):
+
+![destroy and cleanup](screenshots/13-destroy.png)
 
 ## Commands for each step
 
 ```bash
 bash ../scripts/boot-test.sh                          # after apply
+SERVE_PORT=18088 bash ../scripts/boot-test.sh         # same, but keep nginx running on localhost:18088
+docker rm -f lib-reader-web-boot                      # stop it again
 terraform plan -var instance_count=2                  # scale out
 terraform apply -var instance_count=2
 
@@ -158,12 +163,6 @@ aws --endpoint-url http://localhost:4566 s3 ls s3://reader-web-tfstate --recursi
 
 terraform destroy -var instance_count=2
 ```
-
-## Screenshots to capture (`screenshots/`)
-
-`init.png`, `fmt-validate.png`, `plan.png` (22 to add), `apply.png` (outputs), `state.png`, `graph.png`,
-`verify-cli.png`, `boot-test-fail.png` and `boot-test-pass.png`, `change-replace.png` (forces replacement),
-`scale-out.png`, `remote-state.png`, `destroy.png`.
 
 ## Cleanup
 
