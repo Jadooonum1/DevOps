@@ -1,0 +1,8 @@
+body { font-family: system-ui, sans-serif; margin: 0; background: #faf8f3; color: #222; }
+main { max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+form { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+input { flex: 1; min-width: 140px; padding: .4rem; }
+button { padding: .35rem .7rem; margin-right: .25rem; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .4rem; border-bottom: 1px solid #ddd; }
+.error { color: #b00020; }

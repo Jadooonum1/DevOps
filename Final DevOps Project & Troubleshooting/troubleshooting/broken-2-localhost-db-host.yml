@@ -1,0 +1,58 @@
+# BROKEN ON PURPOSE - backend points at localhost instead of the db service
+# Run from the project root:
+#   docker compose -f troubleshooting/broken-2-localhost-db-host.yml --project-directory . up --build
+name: lib-ts2
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - catalog-data:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      # -h 127.0.0.1 forces a TCP check, so it only passes once the real server
+      # (not the temporary init-time server on the unix socket) is accepting connections
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    image: lib-bookshelf-backend
+    environment:
+      DB_HOST: localhost   # BUG: localhost is the backend container itself
+      DB_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [data, app]
+    # healthcheck is defined in backend/Dockerfile; no host port - only nginx talks to it
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: lib-bookshelf-frontend
+    ports:
+      - "${FRONTEND_PORT:-18080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [app]
+    restart: unless-stopped
+
+networks:
+  app:    # frontend <-> backend
+  data:   # backend <-> db; the frontend cannot reach the database
+
+volumes:
+  catalog-data:
