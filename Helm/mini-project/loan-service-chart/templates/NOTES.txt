@@ -1,0 +1,14 @@
+loan-service ({{ .Values.environment }}) installed as "{{ .Release.Name }}", revision {{ .Release.Revision }}.
+{{- if .Values.autoscaling.enabled }}
+Replicas are managed by an HPA: {{ .Values.autoscaling.minReplicas }}-{{ .Values.autoscaling.maxReplicas }} at {{ .Values.autoscaling.targetCPU }}% CPU.
+{{- else }}
+Replicas: {{ .Values.replicaCount }} (no autoscaling).
+{{- end }}
+
+Try it:
+{{- if eq .Values.service.type "NodePort" }}
+  curl -s "$(minikube ip):{{ .Values.service.nodePort }}/"
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "loan.fullname" . }} 8080:{{ .Values.service.port }}
+  curl -s localhost:8080/ ; curl -s localhost:8080/loans
+{{- end }}

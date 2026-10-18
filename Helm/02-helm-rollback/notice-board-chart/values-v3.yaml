@@ -1,0 +1,7 @@
+# Revision 3 (bad change): the image tag does not exist, so new Pods never start
+image:
+  tag: 1.27-alpine-nonexistent
+notice:
+  revision: "v3"
+  headline: "Notice board v3 (this release is broken)"
+  background: "#7a2020"

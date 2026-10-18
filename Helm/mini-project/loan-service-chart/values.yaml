@@ -1,0 +1,33 @@
+# Defaults shared by every environment. values-dev.yaml / values-prod.yaml override them.
+environment: default
+replicaCount: 1
+
+image:
+  repository: python
+  tag: 3.12-alpine
+  pullPolicy: IfNotPresent
+
+# Runtime settings, rendered into a ConfigMap and exposed as env vars.
+app:
+  branchName: "Central Library"
+  loanPeriodDays: 14
+  maxLoansPerMember: 5
+  logLevel: info
+
+service:
+  type: ClusterIP
+  port: 80
+  nodePort: null        # only used when type is NodePort
+
+resources:
+  requests: { cpu: 25m, memory: 32Mi }
+  limits: { cpu: 200m, memory: 96Mi }
+
+probes:
+  enabled: true
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPU: 70

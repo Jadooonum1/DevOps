@@ -1,0 +1,5 @@
+Notice board "{{ .Values.notice.revision }}" deployed as release {{ .Release.Name }} (revision {{ .Release.Revision }}).
+
+View it:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "notice-board.fullname" . }} 8080:{{ .Values.service.port }}
+  curl -s localhost:8080 | grep -E "<h1>|<p>"

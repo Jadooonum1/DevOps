@@ -1,0 +1,6 @@
+# Revision 2 (good change): two replicas, extended hours notice
+replicaCount: 2
+notice:
+  revision: "v2"
+  headline: "Exam season: library open until 22:00"
+  background: "#22406b"

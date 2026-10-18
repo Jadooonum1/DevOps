@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "notice-board.fullname" . }}
+  labels:
+    {{- include "notice-board.labels" . | nindent 4 }}
+data:
+  index.html: |
+    <!doctype html>
+    <html>
+      <head><title>Notice board {{ .Values.notice.revision }}</title></head>
+      <body style="background: {{ .Values.notice.background }}; color: #fff; font-family: sans-serif">
+        <h1>{{ .Values.notice.headline }}</h1>
+        <p>release {{ .Release.Name }}, chart revision {{ .Release.Revision }}, values {{ .Values.notice.revision }}</p>
+      </body>
+    </html>

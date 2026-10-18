@@ -1,0 +1,15 @@
+# Revision 1: first notice board
+replicaCount: 1
+image:
+  repository: nginx
+  tag: 1.27-alpine
+notice:
+  revision: "v1"
+  headline: "Library open 09:00 - 18:00"
+  background: "#35524a"
+service:
+  type: ClusterIP
+  port: 80
+resources:
+  requests: { cpu: 10m, memory: 16Mi }
+  limits: { cpu: 100m, memory: 64Mi }

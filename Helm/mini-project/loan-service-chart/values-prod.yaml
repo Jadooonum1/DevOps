@@ -1,0 +1,17 @@
+environment: production
+replicaCount: 3
+app:
+  loanPeriodDays: 21
+  maxLoansPerMember: 8
+  logLevel: warning
+service:
+  type: NodePort
+  nodePort: 30882
+resources:
+  requests: { cpu: 50m, memory: 48Mi }
+  limits: { cpu: 300m, memory: 128Mi }
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPU: 65

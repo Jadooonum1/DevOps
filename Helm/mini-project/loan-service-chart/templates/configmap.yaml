@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "loan.fullname" . }}
+  labels:
+    {{- include "loan.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.environment | quote }}
+  BRANCH_NAME: {{ .Values.app.branchName | quote }}
+  LOAN_PERIOD_DAYS: {{ .Values.app.loanPeriodDays | quote }}
+  MAX_LOANS_PER_MEMBER: {{ .Values.app.maxLoansPerMember | quote }}
+  LOG_LEVEL: {{ .Values.app.logLevel | quote }}
+  PORT: "8080"
+  server.py: |
+    {{- .Files.Get "files/server.py" | nindent 4 }}

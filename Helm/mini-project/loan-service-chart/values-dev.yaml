@@ -1,0 +1,8 @@
+environment: development
+replicaCount: 1
+app:
+  branchName: "Dev Branch (test data)"
+  logLevel: debug
+resources:
+  requests: { cpu: 10m, memory: 24Mi }
+  limits: { cpu: 100m, memory: 64Mi }
