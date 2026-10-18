@@ -54,6 +54,8 @@ kubectl get pods
 **Expect:** `ownerReferences` is empty, and after the delete `kubectl get pods` returns
 `No resources found`. There was no controller watching the Pod.
 
+![Bare Pod: empty ownerReferences, deleted, nothing comes back](screenshots/01-bare-pod.png)
+
 ## 2. ReplicaSet: self-healing and scaling
 
 ```bash
@@ -79,7 +81,7 @@ kubectl port-forward rs/loan-service-rs 5678:5678 &   # then: curl localhost:567
 **What to look for:**
 
 - Right after deleting a Pod, a replacement with a new random suffix is already
-  `ContainerCreating` while the deleted one is still `Terminating`. The controller acts as
+  `Pending` / `ContainerCreating` while the deleted one is still `Terminating`. The controller acts as
   soon as the matching count drops below 3.
 - Scaling to 5 adds two Pods; scaling to 2 deletes three. The Events list one
   `SuccessfulCreate` / `SuccessfulDelete` per Pod.
@@ -88,6 +90,12 @@ kubectl port-forward rs/loan-service-rs 5678:5678 &   # then: curl localhost:567
   This shows the selector really is the only link between them.
 - Limitation: editing the image or args in a ReplicaSet template does **not** touch existing
   Pods. That is the gap a Deployment fills.
+
+![Deleted Pod replaced while the old one is still Terminating](screenshots/02-replicaset-self-heal.png)
+
+![Scale to 5 then 2, with one SuccessfulCreate/SuccessfulDelete event per Pod](screenshots/03-replicaset-scale.png)
+
+![Each Pod answers with its own name; relabelling a Pod detaches it and the ReplicaSet creates a replacement](screenshots/04-replicaset-selector.png)
 
 ```bash
 kubectl delete rs loan-service-rs
@@ -105,6 +113,8 @@ kubectl get deploy,rs,pods -l app=catalog-api -L version
 **What to look for:** the chain Deployment → ReplicaSet → Pods is visible in the names:
 `catalog-api-<template-hash>-<suffix>`. The ReplicaSet was created by the Deployment, not by
 you.
+
+![Deployment, ReplicaSet and Pods after v1](screenshots/05-deployment-v1.png)
 
 Roll forward to v2. Use a second terminal to watch the Pods change over:
 
@@ -128,6 +138,11 @@ kubectl port-forward deploy/catalog-api 5678:5678 &       # curl localhost:5678 
 - `rollout history` shows revisions 1 and 2, with the `CHANGE-CAUSE` taken from the
   `kubernetes.io/change-cause` annotation in each manifest.
 
+![Watch output during v1 -> v2 and the two ReplicaSets afterwards](screenshots/06-rolling-update.png)
+
+On this run the old `http-echo` Pods briefly show `Error` after `Terminating`: the process exits
+non-zero when it receives SIGTERM. That is cosmetic; the new Pods were already Ready.
+
 Roll back:
 
 ```bash
@@ -140,6 +155,11 @@ kubectl rollout history deployment/catalog-api
 **Expect:** the Pods are `version=v1` again, achieved by scaling the old ReplicaSet back up
 (no new image pull needed). History now shows revisions 2 and 3: an undo is recorded as a
 new revision, and revision 1 disappears because its template is now revision 3.
+
+`rollout undo` also prints a warning that the `last-applied-configuration` annotation is not
+updated, which is one more reason to prefer re-applying a file (see section 4).
+
+![rollout history, curl returning v2, rollout undo, and the history afterwards](screenshots/07-rollout-history-undo.png)
 
 ## 4. Troubleshooting a broken rollout
 
@@ -162,6 +182,8 @@ kubectl describe pod <the-new-pod> | sed -n '/^Events/,$p'
   rollout just stalls. After `progressDeadlineSeconds` (600s by default) the Deployment's
   `Progressing` condition turns `False` with reason `ProgressDeadlineExceeded`.
 
+![ErrImagePull next to three Running Pods, plus the pull-failure Events](screenshots/08-broken-image.png)
+
 Recover, preferably by re-applying the known-good manifest so the file stays the source of
 truth (`rollout undo` also works):
 
@@ -169,6 +191,8 @@ truth (`rollout undo` also works):
 kubectl apply -f 04-deployment-v2.yaml
 kubectl rollout status deployment/catalog-api
 ```
+
+![Re-applying the v2 manifest recovers the Deployment (history 3, 4, 5)](screenshots/09-recover.png)
 
 General debugging order: `kubectl get pods` → `kubectl describe pod` (Events) →
 `kubectl logs` (add `--previous` for a crash-looping container).
@@ -187,7 +211,10 @@ kubectl logs -l app=shelf-scanner --tail=3
 Minikube), and the log lines name the node the Pod runs on. There is no `replicas` field:
 the node count decides.
 
-Optional: add a node and watch the DaemonSet follow it.
+![DaemonSet with one Pod on the single node, its log line, and the kube-system DaemonSets](screenshots/10-daemonset.png)
+
+Optional (not run for the screenshots, to keep the shared laptop's memory free): add a node
+and watch the DaemonSet follow it.
 
 ```bash
 minikube node add
@@ -217,17 +244,7 @@ would skip that node. `kube-proxy` in `kube-system` is a DaemonSet built the sam
 kubectl delete -f 05-daemonset.yaml -f 04-deployment-v2.yaml --ignore-not-found
 kubectl delete rs loan-service-rs --ignore-not-found
 kubectl config set-context --current --namespace=default
+kubectl delete -f 00-namespace.yaml     # optional: remove the namespace too
 ```
 
-## Screenshots to capture
-
-Save into [`screenshots/`](screenshots):
-
-1. `bare-pod.png` - the bare Pod created, deleted, and `No resources found`
-2. `replicaset-self-heal.png` - a deleted Pod being replaced while the old one is `Terminating`
-3. `replicaset-scale.png` - scale to 5 and the ReplicaSet Events
-4. `deployment-v1.png` - `get deploy,rs,pods -L version` after v1
-5. `rolling-update.png` - the watch output during v1 → v2 and the two ReplicaSets
-6. `rollout-history-undo.png` - `rollout history` before and after `rollout undo`
-7. `broken-image.png` - `ImagePullBackOff` next to three `Running` Pods, plus the Events
-8. `daemonset.png` - `get ds` and `get pods -o wide` (and with two nodes, if you tried it)
+![Cleanup](screenshots/11-cleanup.png)
