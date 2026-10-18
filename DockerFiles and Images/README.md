@@ -69,7 +69,7 @@ docker rmi lib-catalog-api:multi lib-catalog-api:single lib-catalog-api:build-st
 
 ## Real results from this machine
 
-Measured on Docker Desktop 29.5.2, linux/arm64:
+Measured on this machine (Docker 29.5.2, Colima VM, linux/arm64):
 
 | Tag | What it contains | Size (`docker images`) |
 |---|---|---|
@@ -110,10 +110,43 @@ containers; see its README for those Dockerfiles and the measured image sizes.
 
 ## Screenshots
 
-`screenshots/` contains only `.gitkeep`. Capture and add:
+All captured from a real run on this machine (Docker engine in a Colima VM, linux/arm64).
 
-1. `build.png` - the three `docker build` commands finishing.
-2. `image-sizes.png` - `docker images lib-catalog-api` showing 13.3MB vs ~470MB.
-3. `run-and-curl.png` - `docker run` plus the three curl calls.
-4. `no-shell.png` - the failing `docker exec ... sh`.
-5. `history.png` - `docker image history lib-catalog-api:multi`.
+Multi-stage build (the middle of the BuildKit log, mostly base-image download progress, is trimmed):
+
+![docker build multi-stage](screenshots/01-build.png)
+
+The build stage on its own and the single-stage comparison image:
+
+![build-stage and single-stage builds](screenshots/02-build-stage-and-single.png)
+
+Sizes - 13.3MB shipped vs ~470MB with the toolchain:
+
+![image sizes](screenshots/03-image-sizes.png)
+
+Running the multi-stage image and calling all three endpoints:
+
+![docker run and curl](screenshots/04-run-and-curl.png)
+
+No shell inside distroless, and the image runs as `nonroot`:
+
+![no shell](screenshots/05-no-shell.png)
+
+`docker image history` - the only layer this Dockerfile adds is the 5.05MB binary:
+
+![image history](screenshots/06-history.png)
+
+The endpoints in a browser (`/books` and `/`):
+
+![/books in a browser](screenshots/07-browser-books.png)
+
+![/ in a browser](screenshots/08-browser-root.png)
+
+Layer cache: after a one-line edit to `main.go`, `WORKDIR`, `COPY go.mod` and `go mod download` are
+`CACHED`; only `COPY main.go` and the `go build` step run again (main.go was restored afterwards):
+
+![layer cache](screenshots/09-layer-cache.png)
+
+Cleanup:
+
+![cleanup](screenshots/10-cleanup.png)
