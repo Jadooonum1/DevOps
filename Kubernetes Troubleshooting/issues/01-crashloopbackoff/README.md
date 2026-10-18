@@ -34,4 +34,8 @@ kubectl -n lib-issues apply -f fixed.yaml
 
 Expected after the fix: `Running` with RESTARTS no longer climbing, and `kubectl logs catalog-sync` shows `sync ok` lines.
 
-Screenshots: `../../screenshots/01-broken.png` and `../../screenshots/01-fixed.png`.
+## Screenshots (real run on Minikube)
+
+![broken](screenshots/01-broken.png)
+
+![fixed](screenshots/02-fixed.png)

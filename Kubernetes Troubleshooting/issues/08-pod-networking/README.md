@@ -22,7 +22,7 @@ kubectl -n lib-issues exec loan-service -- netstat -tln                      # 1
 kubectl -n lib-issues get netpol
 ```
 
-What to look for: (a) gives `Connection refused`: the host is reachable but nothing is listening on the Pod IP. (b) gives a timeout: the packets are silently dropped. That difference tells you which layer to look at. NetworkPolicy is only enforced when the CNI supports it, for example `minikube start --cni=calico`.
+What to look for: (a) gives `Connection refused`: the host is reachable but nothing is listening on the Pod IP. (b) gives a timeout: the packets are silently dropped. That difference tells you which layer to look at. NetworkPolicy is only enforced when the CNI supports it. Minikube's default CNI for the docker driver is kindnet, and recent kindnet releases (here `kindest/kindnetd:v20260820`) enforce NetworkPolicy. The deny policy really did drop traffic in the screenshots below, with no Calico needed. Older kindnet versions or bridge networking ignore policies; there you need `minikube start --cni=calico`.
 
 ## Fix
 
@@ -37,4 +37,14 @@ kubectl -n lib-issues apply -f networkpolicy-allow.yaml   # fix (b)
 
 Expected after the fix: `desk-client` logs `loans: 42 active` every 5 s. A Pod without the `app=desk-client` label still times out while the deny policy is in place.
 
-Screenshots: `../../screenshots/08-broken.png` and `../../screenshots/08-fixed.png`.
+Delete both policies when you're done (`kubectl -n lib-issues delete -f networkpolicy-allow.yaml -f networkpolicy-deny.yaml`). The deny policy covers **every** Pod in `lib-issues`, so while it's in place, issues 06 and 07 time out for a reason that has nothing to do with their own fault.
+
+## Screenshots (real run on Minikube)
+
+![broken](screenshots/01-broken.png)
+
+![fixed bind](screenshots/02-fixed-bind.png)
+
+![netpol deny](screenshots/03-netpol-deny.png)
+
+![netpol allow](screenshots/04-netpol-allow.png)

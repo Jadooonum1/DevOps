@@ -5,8 +5,10 @@ Author: Parth Agarwal
 Practice in finding out *why* something on a cluster is broken. Every fault here is planted
 on purpose in a small library system (catalogue sync, loans, reader web front end), so each
 one can be reproduced, diagnosed and fixed. Target environment: a single-node Minikube
-cluster. Use `minikube start --cni=calico` if you want the NetworkPolicy part of issue 08
-to be enforced.
+cluster. The screenshots come from Minikube (docker driver, Kubernetes v1.37) on Colima on
+an Apple Silicon Mac. Its default CNI, kindnet, enforces NetworkPolicy, so issue 08 works
+without extra setup. On a cluster whose CNI ignores policies, use
+`minikube start --cni=calico`.
 
 The same loop is used for every problem:
 
@@ -51,8 +53,17 @@ kubectl -n lib-cmds apply -f commands/circulation-desk.yaml
 What to look for: the checkout counter in the logs restarts at #1 after a `rollout restart`
 (the Pods are new), the Pod names and IPs change, and `rollout history` shows a new revision.
 
-Screenshots: `cmd-get-describe.png`, `cmd-logs-exec.png`, `cmd-events-top-explain.png`,
-`cmd-rollout-restart.png`.
+![get -o wide --show-labels and describe](screenshots/01-cmd-get-describe.png)
+
+![logs, logs -l --prefix, exec](screenshots/02-cmd-logs-exec.png)
+
+![events, top, explain](screenshots/03-cmd-events-top-explain.png)
+
+After `rollout restart` the Pods have new names and IPs, the checkout counter starts again
+(#16 → #8 here), `rollout history` shows revision 2, and `kubectl debug` adds an ephemeral
+`busybox` container that can see the `desk` container's processes:
+
+![rollout restart, history and kubectl debug](screenshots/04-cmd-rollout-restart.png)
 
 ---
 
@@ -73,9 +84,9 @@ kubectl -n lib-issues get pods,svc
 | [02](issues/02-imagepullbackoff) | ImagePullBackOff | `ImagePullBackOff` | tag typo `2.4-alpinee` | event: not found |
 | [03](issues/03-errimagepull) | ErrImagePull | `ErrImagePull` ⇄ backoff | registry host `.invalid` | event: no such host |
 | [04](issues/04-pending) | Pending | `Pending`, node `<none>` | requests 64 CPUs | event: Insufficient cpu |
-| [05](issues/05-containercreating) | ContainerCreating | stuck `ContainerCreating` | Secret volume missing | event: FailedMount |
+| [05](issues/05-containercreating) | ContainerCreating | stuck `ContainerCreating` | Secret volume missing (Pod `loan-records`) | event: FailedMount |
 | [06](issues/06-service-connectivity) | Service connectivity | Pods Ready, connection refused | `targetPort` 8080 vs 80 | EndpointSlice port |
-| [07](issues/07-dns) | DNS | lookups time out | `dnsPolicy: None` + dead nameserver | `/etc/resolv.conf` |
+| [07](issues/07-dns) | DNS | lookups fail (time out, or NXDOMAIN on Colima) | `dnsPolicy: None` + dead nameserver | `/etc/resolv.conf` |
 | [08](issues/08-pod-networking) | Pod networking | refused, then timed out | bind 127.0.0.1; deny-all NetworkPolicy | `netstat`, `get netpol` |
 | [09](issues/09-config-bad-configmap-key) | Bad ConfigMap key | `CreateContainerConfigError` | `BRANCH_COD` vs `BRANCH_CODE` | event |
 | [10](issues/10-config-wrong-command) | Wrong command | `RunContainerError`, exit 128 | `ngnix` | `lastState.terminated.message` |
@@ -94,8 +105,14 @@ Patterns worth remembering:
 - **Empty EndpointSlice** means a selector or readiness problem. **Endpoints present but
   the call fails** means a port or bind problem.
 
-Screenshots: `NN-<issue>-broken.png` and `NN-<issue>-fixed.png` for each issue, plus
-`overview-broken.png`.
+Every issue folder has its own `screenshots/` with the broken and fixed state (issue 08 has
+four: loopback bind, bind fixed, deny policy, allow policy). All eleven broken manifests
+applied into one namespace look like this after about 75 s:
+
+![all eleven broken Pods side by side](screenshots/05-overview-broken.png)
+
+If you apply 08's NetworkPolicies in the shared namespace, delete them before you check 06
+and 07. The default-deny policy blocks their traffic too.
 
 ---
 
@@ -125,7 +142,19 @@ cd triage-gauntlet
 `overdue-notifier` is the reason the script always prints the last log line: its status
 is green and it never restarts, so a triage that stops at `kubectl get pods` misses it.
 
-Screenshots: `gauntlet-triage.png`, `gauntlet-fixed.png`.
+![./triage.sh deploy: one-screen triage report](screenshots/06-gauntlet-triage.png)
+
+![./triage.sh fix: every Pod Running, notifier fetching the overdue list](screenshots/07-gauntlet-fixed.png)
+
+Fixes made to the script after the first real run: a Pod that crashes and is caught between
+restarts (`Running` with a terminated last state) is now reported as `CrashLoopBackOff`
+instead of `Running`. Events are matched by Pod UID, so warnings from the deleted broken
+Pod don't show up after `fix`. kubectl's `unable to retrieve container logs` line is no
+longer printed as if it were app output. The newest *informative* Warning is shown in
+place of the short `Error: ErrImagePull` echo. `fix` waits `FIX_SETTLE` (15 s) before the
+report. `overdue-notifier` also used to check `nslookup`'s exit code, which busybox sets to
+1 even when the name resolves, so the "fixed" notifier kept logging `cannot resolve`. It
+now looks for an answer line.
 
 ---
 

@@ -1,6 +1,6 @@
 # 05: Stuck in ContainerCreating
 
-Object: `loan-service` in namespace `lib-issues`. Run the commands from this folder.
+Object: `loan-records` in namespace `lib-issues`. Run the commands from this folder.
 
 ## What is wrong
 
@@ -16,8 +16,8 @@ kubectl -n lib-issues apply -f broken.yaml
 ## Diagnose
 
 ```bash
-kubectl -n lib-issues get pod loan-service
-kubectl -n lib-issues describe pod loan-service | sed -n '/Events/,$p'
+kubectl -n lib-issues get pod loan-records
+kubectl -n lib-issues describe pod loan-records | sed -n '/Events/,$p'
 kubectl -n lib-issues get secret
 ```
 
@@ -25,13 +25,18 @@ What to look for: `FailedMount ... secret "loan-db-credentials" not found`. A mi
 
 ## Fix
 
-Create the Secret (the values in `fixed.yaml` are lab placeholders). The kubelet retries the mount on its own, so the existing Pod recovers without being deleted.
+Create the Secret (the values in `fixed.yaml` are lab placeholders). The kubelet retries the mount on its own, so the existing Pod recovers without being deleted. Applying `fixed.yaml` over the stuck Pod is enough:
 
 ```bash
-kubectl -n lib-issues delete -f broken.yaml --ignore-not-found
 kubectl -n lib-issues apply -f fixed.yaml
 ```
 
-Expected after the fix: Within about a minute the Pod is `Running`, and `kubectl exec loan-service -- ls /etc/loan-db` lists `username` and `password`.
+Expected after the fix: Within about a minute the Pod is `Running`, and `kubectl exec loan-records -- ls /etc/loan-db` lists `username` and `password`.
 
-Screenshots: `../../screenshots/05-broken.png` and `../../screenshots/05-fixed.png`.
+(The Pod is called `loan-records`, not `loan-service`, so that it doesn't clash with the `loan-service` Pod of issue 08 when every issue is applied into the same namespace.)
+
+## Screenshots (real run on Minikube)
+
+![broken](screenshots/01-broken.png)
+
+![fixed](screenshots/02-fixed.png)

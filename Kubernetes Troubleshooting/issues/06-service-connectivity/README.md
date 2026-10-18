@@ -21,6 +21,8 @@ kubectl -n lib-issues run probe --rm -it --image=busybox:1.36 --restart=Never --
 kubectl -n lib-issues get endpointslices -l kubernetes.io/service-name=catalog-api -o yaml | grep -A2 ports
 ```
 
+(The screenshots run the same `wget` with `kubectl exec` from a long-lived `busybox` Pod called `toolbox`, because `run --rm -it` needs an interactive terminal.)
+
 What to look for: The request fails with `Connection refused`. The EndpointSlice is **not** empty (both Pod IPs are listed), but its port is 8080. Read it like this: no endpoints means a selector or readiness problem, while endpoints with the wrong port means a `targetPort` problem.
 
 ## Fix
@@ -34,4 +36,8 @@ kubectl -n lib-issues apply -f fixed.yaml
 
 Expected after the fix: The same `wget` returns the nginx welcome page.
 
-Screenshots: `../../screenshots/06-broken.png` and `../../screenshots/06-fixed.png`.
+## Screenshots (real run on Minikube)
+
+![broken](screenshots/01-broken.png)
+
+![fixed](screenshots/02-fixed.png)

@@ -33,4 +33,8 @@ kubectl -n lib-issues apply -f fixed.yaml
 
 Expected after the fix: Events show `Pulled` then `Started`, and the Pod is `Running`.
 
-Screenshots: `../../screenshots/02-broken.png` and `../../screenshots/02-fixed.png`.
+## Screenshots (real run on Minikube)
+
+![broken](screenshots/01-broken.png)
+
+![fixed](screenshots/02-fixed.png)

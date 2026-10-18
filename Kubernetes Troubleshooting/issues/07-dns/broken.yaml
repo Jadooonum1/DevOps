@@ -37,7 +37,21 @@ spec:
   containers:
     - name: client
       image: busybox:1.36
-      command: ["sh", "-c", "while true; do nslookup -timeout=2 shelf-target || echo LOOKUP FAILED; sleep 5; done"]
+      # busybox nslookup exits 1 if any search-domain candidate is NXDOMAIN, even when
+      # the name resolved, so judge success by the "Name:" line instead of the exit code.
+      command: ["sh", "-c"]
+      args:
+        - |
+          while true; do
+            out=$(nslookup -timeout=2 shelf-target 2>&1)
+            if echo "$out" | grep -q '^Name:'; then
+              echo "$(date -u +%T) $(echo "$out" | grep -A1 '^Name:' | tr '\n' ' ')"
+            else
+              echo "$out" | grep -v '^$' | tail -2
+              echo "$(date -u +%T) LOOKUP FAILED"
+            fi
+            sleep 5
+          done
       resources:
         requests: { cpu: 10m, memory: 16Mi }
         limits: { cpu: 50m, memory: 32Mi }

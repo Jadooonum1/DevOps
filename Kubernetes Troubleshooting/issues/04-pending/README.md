@@ -34,4 +34,8 @@ kubectl -n lib-issues apply -f fixed.yaml
 
 Expected after the fix: The Pod gets a node and starts.
 
-Screenshots: `../../screenshots/04-broken.png` and `../../screenshots/04-fixed.png`.
+## Screenshots (real run on Minikube)
+
+![broken](screenshots/01-broken.png)
+
+![fixed](screenshots/02-fixed.png)

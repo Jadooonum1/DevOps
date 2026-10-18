@@ -34,4 +34,8 @@ kubectl -n lib-issues apply -f fixed.yaml
 
 Expected after the fix: `Running`, 0 restarts.
 
-Screenshots: `../../screenshots/10-broken.png` and `../../screenshots/10-fixed.png`.
+## Screenshots (real run on Minikube)
+
+![broken](screenshots/01-broken.png)
+
+![fixed](screenshots/02-fixed.png)

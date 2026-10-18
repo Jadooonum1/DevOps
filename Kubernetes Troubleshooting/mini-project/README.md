@@ -29,6 +29,11 @@ kubectl -n lib-mini run curl --rm -it --image=busybox:1.36 --restart=Never -- wg
 Expect: three Ready Pods, all three Pod IPs in the EndpointSlice, and the nginx welcome
 page from the Service. Note these down to compare against later.
 
+![baseline: 3 Ready Pods, 3 endpoints, welcome page](../screenshots/08-mini-deploy.png)
+
+(The screenshots run `wget` through `kubectl exec` in a long-lived `busybox` Pod named
+`toolbox`, because `run --rm -it` needs an interactive terminal.)
+
 ## 2. The Pod with two faults
 
 ### Fault 1: image
@@ -41,6 +46,8 @@ kubectl -n lib-mini describe pod isbn-indexer | sed -n '/Events/,$p'
 
 Expect: `ErrImagePull` / `ImagePullBackOff`. The event says the manifest for
 `python:3.12-alpne` was not found. `kubectl logs` gives nothing, because no container exists.
+
+![fault 1: ImagePullBackOff, manifest not found](../screenshots/09-mini-broken-pod-1.png)
 
 ### Fault 2: configuration
 
@@ -57,6 +64,8 @@ Expect: the pull now succeeds, but the status becomes `CreateContainerConfigErro
 `configmap "indexer-settings" not found`. Fixing one layer exposed the next, which is why
 you should check again after every change.
 
+![fault 2: CreateContainerConfigError, configmap not found](../screenshots/10-mini-broken-pod-2.png)
+
 ### Fix
 
 ```bash
@@ -66,6 +75,8 @@ kubectl -n lib-mini logs -f isbn-indexer
 ```
 
 Expect: `indexing ISBNs in batches of 250` followed by `indexed batch` every 15 s.
+
+![both faults fixed](../screenshots/11-mini-broken-pod-fixed.png)
 
 ## 3. Selector challenge
 
@@ -79,6 +90,10 @@ kubectl -n lib-mini get pods -l app=reader-web,tier=frontend          # No resou
 
 Expect: the Pods are still healthy, but the EndpointSlice has no endpoints and the request
 fails. Comparing the Service selector with `--show-labels` shows the `tier` mismatch.
+With no endpoints at all, kube-proxy rejects the connection, so on this cluster it shows up
+as `Connection refused` rather than a timeout.
+
+![selector requires tier=frontend: no endpoints](../screenshots/12-mini-selector-broken.png)
 Restore the Service:
 
 ```bash
@@ -86,12 +101,10 @@ kubectl -n lib-mini apply -f service.yaml
 kubectl -n lib-mini get endpointslices -l kubernetes.io/service-name=reader-web   # 3 endpoints again
 ```
 
+![selector restored](../screenshots/13-mini-selector-fixed.png)
+
 ## Cleanup
 
 ```bash
 kubectl delete namespace lib-mini
 ```
-
-Screenshots (`../screenshots/`): `mini-deploy.png`, `mini-broken-pod-1.png`,
-`mini-broken-pod-2.png`, `mini-broken-pod-fixed.png`, `mini-selector-broken.png`,
-`mini-selector-fixed.png`.

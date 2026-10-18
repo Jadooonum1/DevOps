@@ -16,8 +16,10 @@ spec:
       args:
         - |
           while true; do
-            if nslookup "$LOANS_HOST" >/dev/null 2>&1; then
-              wget -q -T 3 -O- "http://$LOANS_HOST" && echo " <- overdue list fetched"
+            # busybox nslookup can exit 1 even on success (NXDOMAIN for another search
+            # domain), so check for an answer line instead of the exit code
+            if nslookup "$LOANS_HOST" 2>/dev/null | grep -q "^Name:"; then
+              body=$(wget -q -T 3 -O- "http://$LOANS_HOST") && echo "$body <- overdue list fetched"
             else
               echo "WARN cannot resolve $LOANS_HOST, skipping notifications"
             fi

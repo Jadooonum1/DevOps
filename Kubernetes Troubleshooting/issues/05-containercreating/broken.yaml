@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: loan-service
+  name: loan-records
   labels: { issue: "05" }
 spec:
   volumes:

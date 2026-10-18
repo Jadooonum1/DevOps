@@ -15,6 +15,7 @@ ACTION="${1:-}"
 NS="${2:-lib-gauntlet}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SETTLE="${SETTLE:-45}"
+FIX_SETTLE="${FIX_SETTLE:-15}"
 
 die() { echo "error: $*" >&2; exit 1; }
 command -v kubectl >/dev/null || die "kubectl not found"
@@ -31,6 +32,7 @@ classify() {
   phase=$(jp "$pod" '{.status.phase}')
   if [[ "$last" == "OOMKilled" ]]; then echo "OOMKilled"
   elif [[ -n "$waiting" ]]; then echo "$waiting"
+  elif [[ -n "$last" ]]; then echo "CrashLoopBackOff"   # restarted, caught between back-offs
   else echo "${phase:-Unknown}"
   fi
 }
@@ -64,20 +66,26 @@ deploy() {
 report() {
   kubectl -n "$NS" get pods -l gauntlet=true -o wide
   echo
-  local pods pod status restarts exitcode event logline
+  local pods pod uid status restarts exitcode event logline
   pods=$(kubectl -n "$NS" get pods -l gauntlet=true -o jsonpath='{.items[*].metadata.name}')
   [[ -z "$pods" ]] && die "no gauntlet Pods in $NS (run: $0 deploy $NS)"
   for pod in $pods; do
     status=$(classify "$pod")
     restarts=$(jp "$pod" '{.status.containerStatuses[0].restartCount}')
     exitcode=$(jp "$pod" '{.status.containerStatuses[0].lastState.terminated.exitCode}')
+    uid=$(jp "$pod" '{.metadata.uid}')
+    # filter by UID: events of an earlier Pod with the same name are kept for ~1 h
     event=$(kubectl -n "$NS" get events \
-              --field-selector "involvedObject.name=$pod,type=Warning" \
+              --field-selector "involvedObject.uid=$uid,type=Warning" \
               --sort-by=.lastTimestamp \
-              -o jsonpath='{range .items[-1:]}{.reason}: {.message}{end}' 2>/dev/null | cut -c1-110 || true)
-    logline=$(kubectl -n "$NS" logs "$pod" --tail=1 2>/dev/null || true)
+              -o jsonpath='{range .items[*]}{.reason}: {.message}{"\n"}{end}' 2>/dev/null || true)
+    # prefer the newest event with a real message over the short "Error: ErrImagePull" echo
+    event=$( { grep -v ': Error: ' <<<"$event" | grep . || echo "$event"; } | tail -n 1 | cut -c1-110)
+    # kubectl prints "unable to retrieve container logs ..." on stdout when the
+    # container is already gone, so drop that line rather than show it as app output
+    logline=$(kubectl -n "$NS" logs "$pod" --tail=1 2>/dev/null | grep -v '^unable to retrieve' || true)
     if [[ -z "$logline" ]]; then
-      logline=$(kubectl -n "$NS" logs "$pod" --previous --tail=1 2>/dev/null || true)
+      logline=$(kubectl -n "$NS" logs "$pod" --previous --tail=1 2>/dev/null | grep -v '^unable to retrieve' || true)
     fi
     printf '%-18s %s (restarts=%s%s)\n' "$pod" "$status" "${restarts:-0}" "${exitcode:+, last exit=$exitcode}"
     printf '  hint : %s\n' "$(hint "$status")"
@@ -98,6 +106,8 @@ fix() {
     echo "applied $(basename "$d")/fixed.yaml"
   done
   kubectl -n "$NS" wait --for=condition=Ready pod -l gauntlet=true --timeout=120s || true
+  echo "waiting ${FIX_SETTLE}s so the apps log at least one cycle (override with FIX_SETTLE=...)"
+  sleep "$FIX_SETTLE"
   report
 }
 

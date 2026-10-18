@@ -21,7 +21,7 @@ kubectl -n lib-issues describe pod overdue-report | grep -A5 'Last State'
 kubectl -n lib-issues logs overdue-report --previous
 ```
 
-What to look for: `Last State: Terminated, Reason: OOMKilled, Exit Code: 137` (128 + SIGKILL 9). The previous log stops after `building overdue report...` and never reaches `report ready`. CPU limits only throttle a container, but memory limits kill it.
+What to look for: `Last State: Terminated, Reason: OOMKilled, Exit Code: 137` (128 + SIGKILL 9). This container dies within a second of starting, so during the back-off the most recent dead container is still the "current" one. Plain `kubectl logs overdue-report` shows its output, while `--previous` (the one before that) may already be garbage-collected (`unable to retrieve container logs`). The log stops after `building overdue report...` and never reaches `report ready`. CPU limits only throttle a container, but memory limits kill it.
 
 ## Fix
 
@@ -34,4 +34,8 @@ kubectl -n lib-issues apply -f fixed.yaml
 
 Expected after the fix: The log shows `report ready, holding it in memory` and the Pod stays `Running`.
 
-Screenshots: `../../screenshots/11-broken.png` and `../../screenshots/11-fixed.png`.
+## Screenshots (real run on Minikube)
+
+![broken](screenshots/01-broken.png)
+
+![fixed](screenshots/02-fixed.png)
