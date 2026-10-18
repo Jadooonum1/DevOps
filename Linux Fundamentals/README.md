@@ -14,7 +14,7 @@ Get comfortable with the parts of Linux a DevOps engineer touches every day, usi
 
 ## Environment
 
-Everything was run in throwaway `ubuntu:24.04` containers from my Mac (Docker Desktop, arm64).
+Everything was run in throwaway `ubuntu:24.04` containers from my Mac (Colima Docker engine, arm64).
 Parts 1, 2 and 4 use a plain container; Part 3 needs `systemd` as PID 1, so it uses a
 privileged container (see below).
 
@@ -66,35 +66,17 @@ cat catalogue-soft.txt
 
 ### Real output
 
-```text
-$ ls -li
-2505321 -rw-r--r-- 2 root root 21 Oct 18 13:52 catalogue-hard.txt
-2505322 lrwxrwxrwx 1 root root 13 Oct 18 13:52 catalogue-soft.txt -> catalogue.txt
-2505321 -rw-r--r-- 2 root root 21 Oct 18 13:52 catalogue.txt
-$ stat -c "%n inode=%i links=%h type=%F" catalogue*
-catalogue-hard.txt inode=2505321 links=2 type=regular file
-catalogue-soft.txt inode=2505322 links=1 type=symbolic link
-catalogue.txt inode=2505321 links=2 type=regular file
-$ echo "Neuromancer - William Gibson" >> catalogue-hard.txt
-$ cat catalogue.txt
-Dune - Frank Herbert
-Neuromancer - William Gibson
-$ rm catalogue.txt
-$ cat catalogue-hard.txt
-Dune - Frank Herbert
-Neuromancer - William Gibson
-$ cat catalogue-soft.txt
-cat: catalogue-soft.txt: No such file or directory
-$ ls -l catalogue-soft.txt
-lrwxrwxrwx 1 root root 13 Oct 18 13:52 catalogue-soft.txt -> catalogue.txt
-```
+![Hard vs symbolic links: ls -li, stat, and cat after rm](screenshots/01-hard-vs-soft-link.png)
+
+Captured in the `lib-linux` `ubuntu:24.04` container (hostname `library-lab`).
 
 ### What it shows
 
-- `catalogue.txt` and `catalogue-hard.txt` share inode `2505321` and have link count 2.
+- `catalogue.txt` and `catalogue-hard.txt` share inode `1061729` and have link count 2;
+  the symlink has its own inode (`1061758`) and link count 1.
 - Writing through the hard link changed the "original" - there is only one copy of the data.
-- After `rm catalogue.txt` the hard link still has both lines (link count dropped to 1).
-- The symlink still exists (`ls -l` lists it) but it points at a path that is gone.
+- After `rm catalogue.txt` the hard link still has both lines (the final `ls -li` shows link count 1, size 50).
+- The symlink still exists (`ls -li` lists it, `-> catalogue.txt`) but it points at a path that is gone.
 
 ---
 
@@ -127,36 +109,15 @@ ls -la /home/clerk2
 
 `--disabled-password --gecos ...` only make `adduser` non-interactive for the demo.
 
-### Real output (trimmed)
+### Real output
 
-```text
-$ useradd -m -s /bin/bash librarian1
-$ id librarian1
-uid=1001(librarian1) gid=1001(librarian1) groups=1001(librarian1)
-$ grep librarian1 /etc/passwd
-librarian1:x:1001:1001::/home/librarian1:/bin/bash
-$ useradd archivist   # no flags
-$ grep archivist /etc/passwd; ls -d /home/archivist
-archivist:x:1002:1002::/home/archivist:/bin/sh
-ls: cannot access '/home/archivist': No such file or directory
-$ adduser --disabled-password --gecos "Library Clerk" clerk2
-info: Adding user `clerk2' ...
-info: Selecting UID/GID from range 1000 to 59999 ...
-info: Adding new group `clerk2' (1003) ...
-info: Adding new user `clerk2' (1003) with group `clerk2 (1003)' ...
-info: Creating home directory `/home/clerk2' ...
-info: Copying files from `/etc/skel' ...
-info: Adding new user `clerk2' to supplemental / extra groups `users' ...
-info: Adding user `clerk2' to group `users' ...
-$ id clerk2
-uid=1003(clerk2) gid=1003(clerk2) groups=1003(clerk2),100(users)
-$ grep clerk2 /etc/passwd
-clerk2:x:1003:1003:Library Clerk,,,:/home/clerk2:/bin/bash
-$ ls -la /home/clerk2
--rw-r--r-- 1 clerk2 clerk2  220 Oct 18 13:52 .bash_logout
--rw-r--r-- 1 clerk2 clerk2 3771 Oct 18 13:52 .bashrc
--rw-r--r-- 1 clerk2 clerk2  807 Oct 18 13:52 .profile
-```
+![useradd with explicit flags vs bare useradd](screenshots/02-useradd.png)
+
+![adduser narrating each step, and the three /etc/passwd lines](screenshots/03-adduser.png)
+
+`adduser` had been installed beforehand with `apt-get install -y adduser` (the minimal image
+does not include it). `passwd -S archivist` shows `L` - the bare `useradd` account is locked
+because no password was ever set.
 
 ### What it shows
 
@@ -217,36 +178,30 @@ journalctl --disk-usage
 
 Clean up with `docker rm -f library-systemd`.
 
-### Real output (trimmed)
+### Real output
 
-```text
-$ journalctl --no-pager -u cron
-Oct 18 13:53:24 cc7be65d81a4 systemd[1]: Started cron.service - Regular background program processing daemon.
-Oct 18 13:53:24 cc7be65d81a4 cron[3091]: (CRON) INFO (Running @reboot jobs)
-Oct 18 13:53:30 cc7be65d81a4 systemd[1]: Stopping cron.service - Regular background program processing daemon...
-Oct 18 13:53:30 cc7be65d81a4 systemd[1]: cron.service: Deactivated successfully.
-Oct 18 13:53:30 cc7be65d81a4 systemd[1]: Stopped cron.service - Regular background program processing daemon.
-Oct 18 13:53:30 cc7be65d81a4 systemd[1]: Started cron.service - Regular background program processing daemon.
-Oct 18 13:53:30 cc7be65d81a4 cron[3118]: (CRON) INFO (Skipping @reboot jobs -- not system startup)
-$ journalctl --no-pager -t bookshelf
-Oct 18 13:53:31 cc7be65d81a4 bookshelf[3120]: overdue scan found 3 late loans
-Oct 18 13:53:31 cc7be65d81a4 bookshelf[3121]: catalog sync failed: isbn index locked
-$ journalctl --no-pager -p err -b
-Oct 18 13:53:31 cc7be65d81a4 bookshelf[3121]: catalog sync failed: isbn index locked
-$ journalctl --no-pager -u cron -o short-iso -n 3
-2026-10-18T13:53:30+00:00 cc7be65d81a4 cron[3118]: (CRON) INFO (pidfile fd = 3)
-2026-10-18T13:53:30+00:00 cc7be65d81a4 cron[3118]: (CRON) INFO (Skipping @reboot jobs -- not system startup)
-$ journalctl --disk-usage
-Archived and active journals take up 8.0M in the file system.
-```
+![journalctl -u cron restart pair, -t bookshelf, -p err -b](screenshots/04-journalctl-unit-tag-priority.png)
+
+![journalctl priority filter on one tag, short-iso, json-pretty fields, disk usage](screenshots/05-journalctl-filters-formats.png)
+
+These were run with `docker exec` in the privileged `lib-systemd` container (hostname is the
+container ID).
 
 ### What it shows
 
 - `-u cron` shows the whole life of the unit: first start at boot (with `@reboot` jobs),
-  then the stop/start pair caused by my restart (note the new PID, 3091 -> 3118, and that
-  `@reboot` jobs are skipped the second time).
+  then the stop/start pair caused by my restart (new PID 3050 -> 3091; `-n 5`/`short-iso` show the
+  second start logging "Skipping @reboot jobs -- not system startup"). The `EXTRA_OPTS` line is a
+  harmless notice from Ubuntu's cron unit file, which references an unset variable.
 - `-t bookshelf` isolates my app's messages from everything else.
-- `-p err` returned only the `err` line; the `warning` line is less severe and was filtered out.
+- `-p err -b` dropped my `warning` line but also returned **kernel** OOM-killer messages. On
+  Colima every container shares the VM's kernel, and a privileged container can read the
+  kernel log, so those lines came from other workloads on the same VM - a real-world reminder that
+  `-p` filters by severity across *all* sources.
+- `-t bookshelf -p warning` shows both app lines; `-t bookshelf -p err` shows only the error.
+  Combining field filters is how you isolate one app's errors.
+- `-o json-pretty` reveals the structured fields behind each line (`PRIORITY` 3 = `err`,
+  `SYSLOG_IDENTIFIER`, `_PID`), which is what the filters match on.
 
 ---
 
@@ -306,48 +261,27 @@ Archived and active journals take up 8.0M in the file system.
 | `ip a`, `ip route`, `ss -tulpn` | addresses, routes, listening ports |
 | `curl -I url`, `ping -c 3 host` | HTTP check, reachability |
 
-### Short practice session (real output, trimmed)
+### Short practice session (real output)
 
-```text
-$ mkdir -p library/fiction library/nonfiction library/returns
-$ touch library/fiction/dune.txt library/nonfiction/sapiens.txt
-$ printf "isbn,title\n9780441013593,Dune\n9780062316097,Sapiens\n" > library/index.csv
-$ chmod 640 library/index.csv
-$ ls -l library/index.csv
--rw-r----- 1 root root 52 Oct 18 13:53 library/index.csv
-$ umask
-0022
-$ grep -n Dune library/index.csv
-2:9780441013593,Dune
-$ tar -czf library.tgz library
-$ tar -tzf library.tgz | sort
-library/
-library/fiction/
-library/fiction/dune.txt
-library/index.csv
-library/nonfiction/
-library/nonfiction/sapiens.txt
-library/returns/
-$ sleep 300 & echo started sleep pid $!
-started sleep pid 21
-$ ps -eo pid,ppid,stat,cmd | head -n 6
-    PID    PPID STAT CMD
-      1       0 Ss   bash -s
-     21       1 S    sleep 300
-$ df -h /
-Filesystem      Size  Used Avail Use% Mounted on
-overlay          40G  3.8G   34G  11% /
-$ uname -srm
-Linux 6.8.0-117-generic aarch64
-```
+![Practice session: directories, chmod, umask, grep/cut, tar](screenshots/06-basic-commands-files.png)
+
+![Practice session: background job, ps, kill -15, df, free, uptime, uname](screenshots/07-basic-commands-processes.png)
+
+`kill -15` sent SIGTERM, and `wait` reported exit status 143 (= 128 + 15). PID 1 is
+`sleep infinity` because that is what the lab container was started with
+(`docker run -d --name lib-linux -h library-lab ubuntu:24.04 sleep infinity`, then
+`docker exec -i lib-linux bash`). `df`/`free`/`uptime` describe the Colima VM.
 
 ## Screenshots
 
-`screenshots/` is empty for now (only `.gitkeep`). Capture these from your own terminal:
+All screenshots are in [`screenshots/`](screenshots/) and are embedded above, next to the part they belong to:
 
-| File | What it should show |
+| File | Shows |
 |---|---|
-| `hard-vs-soft-link.png` | `ls -li` with matching inodes, and `cat` on both links after `rm catalogue.txt` |
-| `useradd-vs-adduser.png` | bare `useradd`, `useradd -m -s`, `adduser` output, and the `/etc/passwd` lines |
-| `journalctl.png` | `journalctl -u cron` restart pair and `-p err` showing only the error line |
-| `basic-commands.png` | the practice session above |
+| `01-hard-vs-soft-link.png` | `ls -li` with matching inodes, `stat`, and `cat` on both links after `rm catalogue.txt` |
+| `02-useradd.png` | `useradd -m -s` vs bare `useradd` (no home dir, `/bin/sh`, locked) |
+| `03-adduser.png` | `adduser` output, `id`, and the three `/etc/passwd` lines |
+| `04-journalctl-unit-tag-priority.png` | `journalctl -u cron` restart pair, `-t bookshelf`, `-p err -b` |
+| `05-journalctl-filters-formats.png` | `-t ... -p`, `-o short-iso`, `-o json-pretty` fields, `--disk-usage` |
+| `06-basic-commands-files.png` | practice session: files, permissions, text, archives |
+| `07-basic-commands-processes.png` | practice session: processes and system info |
