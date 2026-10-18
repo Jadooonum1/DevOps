@@ -28,6 +28,10 @@ curl -s localhost:8080 | grep -E '<h1>|<p>'
 
 Expect: "Library open 09:00 - 18:00", `chart revision 1, values v1`.
 
+![install, revision 1](../screenshots/15-rollback-install-v1.png)
+
+![revision 1 in the browser](../screenshots/16-rollback-v1-browser.png)
+
 ## Step 2: good upgrade (revision 2)
 
 ```bash
@@ -37,6 +41,10 @@ curl -s localhost:8080 | grep -E '<h1>|<p>'
 ```
 
 Expect: two Pods, and the exam-season headline with `revision 2, values v2`.
+
+![good upgrade, revision 2](../screenshots/17-rollback-upgrade-v2.png)
+
+![revision 2 in the browser](../screenshots/18-rollback-v2-browser.png)
 
 ## Step 3: bad upgrade (revision 3)
 
@@ -57,6 +65,16 @@ see v2. Look at the page anyway: the ConfigMap has already been replaced with v3
 but the running v2 Pods only pick it up when the kubelet next syncs the projected file.
 This shows that config and code can drift apart in a half-finished release.
 
+What actually happened on Minikube (Helm v4.3.1): the upgrade failed after 60 s with
+`resource Deployment/helm-rollback/board-notice-board not ready ... context deadline
+exceeded`, and revision 3 is `failed`. One new Pod is stuck in `ErrImagePull`, and the
+two v2 Pods are still Ready. But the page they serve had **already switched to the v3
+content**, because the ConfigMap is shared and the kubelet refreshed the mounted file:
+
+![bad upgrade, revision 3 failed](../screenshots/19-rollback-upgrade-v3.png)
+
+![users see the broken release's page from the old v2 Pods](../screenshots/20-rollback-v3-browser.png)
+
 ## Step 4: roll back to revision 2
 
 ```bash
@@ -68,9 +86,25 @@ kubectl -n helm-rollback get pods
 curl -s localhost:8080 | grep -E '<h1>|<p>'
 ```
 
-Expect: revision 4 with the description `Rollback to 2`. The broken Pod is gone, two Pods
-run `nginx:1.27-alpine`, and the page shows the v2 headline with `chart revision 4,
-values v2` (the revision number is the new one, but the values are revision 2's).
+Expect: revision 4 with the description `Rollback to 2`. The broken Pod is gone, and two
+Pods run `nginx:1.27-alpine`.
+
+Observed: the rollback re-applies the manifest **stored for revision 2**, so the page says
+`chart revision 2, values v2`, not 4 (`.Release.Revision` was rendered when revision 2
+was created). Because that stored Pod template (and its checksum) is identical to revision
+2's, the two v2 Pods are kept rather than replaced. Right after the rollback they were
+still serving the v3 page, until the kubelet's next ConfigMap sync about a minute later:
+
+![rollback to 2: revision 4, broken Pod gone, page not yet synced](../screenshots/21-rollback-to-v2.png)
+
+![a minute later: ConfigMap and page are back to v2](../screenshots/22-rollback-page-synced.png)
+
+![after the rollback, in the browser](../screenshots/23-rollback-v4-browser.png)
+
+Lesson: a page or config that is read from a mounted ConfigMap can change *before* or
+*after* the Pods do. If the content must change at the same time as the rollout, give
+each version its own ConfigMap name (for example, with a hash suffix) instead of updating
+one in place.
 
 ## Takeaways
 
@@ -89,6 +123,3 @@ values v2` (the revision number is the new one, but the values are revision 2's)
 helm uninstall board -n helm-rollback
 kubectl delete namespace helm-rollback
 ```
-
-Screenshots (`../screenshots/`): `rollback-install-v1.png`, `rollback-upgrade-v2.png`,
-`rollback-upgrade-v3.png`, `rollback-to-v2.png`.

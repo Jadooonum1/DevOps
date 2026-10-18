@@ -44,6 +44,12 @@ kubectl -n helm-loans port-forward svc/loans-loan-service 8080:80
 curl -s localhost:8080/ ; curl -s localhost:8080/loans
 ```
 
+![lint, and what changes between dev and prod](../screenshots/24-mini-lint-template.png)
+
+![install with dev values](../screenshots/25-mini-install-dev.png)
+
+![dev response in the browser (via port-forward)](../screenshots/26-mini-dev-browser.png)
+
 Local results while writing this: both lints passed. Dev renders ConfigMap, Service and
 Deployment, and prod also renders a HorizontalPodAutoscaler. All of them passed kubeconform
 `-strict`. `server.py` was run in a `python:3.12-alpine` container and answered `/`, `/loans`
@@ -59,12 +65,19 @@ helm upgrade loans loan-service-chart -n helm-loans -f loan-service-chart/values
 helm history loans -n helm-loans
 kubectl -n helm-loans get deploy,hpa,svc
 curl -s "$(minikube ip):30882/"
+# With the docker driver on macOS (Colima here) the node IP is not reachable from the
+# host, so call the NodePort from inside the node instead:
+minikube ssh -- curl -s localhost:30882/
 ```
 
 Expect: revision 2. The HPA keeps 3 replicas (its minimum), and the Service becomes
 NodePort 30882. The response shows `production`, `loan_period_days: 21` and
 `max_loans_per_member: 8`. Calling it several times gives different `pod` names. The Pods
 were replaced because the config checksum changed.
+
+![upgrade to prod: HPA, NodePort 30882, 21-day loans, answers from 3 Pods](../screenshots/27-mini-upgrade-prod.png)
+
+![prod response in the browser (via port-forward)](../screenshots/28-mini-prod-browser.png)
 
 ## 3. Two bad upgrades
 
@@ -89,13 +102,23 @@ serving. Both revisions are `failed` in `helm history`. (The 12 Mi number was ch
 locally: `docker run -m 12m --memory-swap 12m python:3.12-alpine python -u /app/server.py`
 was OOM-killed with exit 137.)
 
+Observed with Helm 4: upgrade A is rejected during server-side apply (`resources.requests:
+Invalid value: "48Mi": must be less than or equal to memory limit of 16Mi`). Upgrade B
+times out with `Updated: 1/3`, and its single new Pod is `OOMKilled` / exit 137 →
+`CrashLoopBackOff`, while the three prod Pods keep running:
+
+![two bad upgrades](../screenshots/29-mini-bad-upgrade.png)
+
+(The `helm history --max-col-width` call in that screenshot is a Helm 3 flag that Helm 4
+no longer has. The history is shown in the next screenshot.)
+
 ## 4. Roll back and clean up
 
 ```bash
 helm rollback loans 2 -n helm-loans --wait
 helm history loans -n helm-loans
 helm get values loans -n helm-loans
-curl -s "$(minikube ip):30882/healthz"
+minikube ssh -- curl -s localhost:30882/healthz
 helm uninstall loans -n helm-loans
 kubectl delete namespace helm-loans
 ```
@@ -104,7 +127,4 @@ Expect: a new revision `Rollback to 2` with the prod values (`48Mi` / `128Mi`) r
 and `/healthz` returns `{"status": "ok"}`. After `uninstall`, `helm list -n helm-loans`
 is empty.
 
-## Screenshots to capture (`../screenshots/`)
-
-`mini-install-dev.png`, `mini-upgrade-prod.png`, `mini-bad-upgrade.png`,
-`mini-rollback-cleanup.png`.
+![history with both failed revisions, rollback to 2, cleanup](../screenshots/30-mini-rollback-cleanup.png)

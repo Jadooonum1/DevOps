@@ -8,7 +8,9 @@ upgrade and roll back the whole set as one versioned **release**. The examples a
 the library system: a reading-room page, a notice board and the `loan-service` API.
 
 Target environment: Helm v3/v4 CLI and a Minikube cluster. Each exercise uses its own
-`helm-*` namespace.
+`helm-*` namespace. Everything below was run with Helm v4.3.1 against Minikube
+(docker driver, Kubernetes v1.37) on Colima, and each exercise README embeds the
+screenshots from that run. Web pages were opened through `kubectl port-forward`.
 
 | Term | Meaning |
 |---|---|
@@ -55,7 +57,11 @@ helm template loans mini-project/loan-service-chart -f mini-project/loan-service
 ```
 
 The commands that need a cluster (`install`, `upgrade`, `rollback` and so on) are written
-out in each exercise, along with what to expect.
+out in each exercise, along with what was actually observed on the cluster.
+
+![helm upgrade and history](screenshots/07-helm-upgrade-history.png)
+
+![the failed v3 upgrade, then helm rollback board 2](screenshots/21-rollback-to-v2.png)
 
 ## Cheat sheet
 
@@ -65,7 +71,7 @@ helm lint DIR [-f values.yaml]             # static checks
 helm template REL DIR [-f ...] [--set ...] # render locally
 helm install REL DIR -n NS --create-namespace [-f ...] [--wait]
 helm upgrade --install REL DIR -n NS -f values-prod.yaml
-helm list -n NS | helm status REL -n NS | helm history REL -n NS
+helm list -n NS | helm status REL -n NS | helm history REL -n NS   # Helm 4: list shows all statuses
 helm get values|manifest|notes REL -n NS [--revision N]
 helm rollback REL [N] -n NS
 helm uninstall REL -n NS

@@ -19,6 +19,8 @@ Look at `values.yaml` and how `templates/deployment.yaml` reads it (`.Values.rep
 `.Values.image.repository`), and at `_helpers.tpl`, which defines the shared name and label
 snippets (`reading-room.fullname`, `reading-room.labels`).
 
+![helm create (Helm v4.3.1)](../screenshots/01-helm-create.png)
+
 ## 2. Lint and render
 
 ```bash
@@ -33,6 +35,8 @@ any flags the output contains ServiceAccount, Service, Deployment and the test P
 autoscaling enabled, a HorizontalPodAutoscaler appears and the Deployment no longer sets
 `replicas`.
 
+![helm lint and helm template](../screenshots/02-helm-lint-template.png)
+
 ## 3. Install and list
 
 ```bash
@@ -44,6 +48,13 @@ kubectl -n helm-cmds get all -l app.kubernetes.io/instance=rr
 Expect: `STATUS deployed` and `REVISION 1`. Every object has the label
 `app.kubernetes.io/managed-by=Helm`.
 
+![helm install and list](../screenshots/03-helm-install-list.png)
+
+Open it in a browser through a port-forward
+(`kubectl -n helm-cmds port-forward svc/rr-reading-room 18080:80`):
+
+![reading-room in the browser](../screenshots/06-helm-reading-room-browser.png)
+
 ## 4. Status, NOTES and test
 
 ```bash
@@ -54,6 +65,8 @@ helm test rr -n helm-cmds
 `status` prints the rendered `NOTES.txt` again (with the port-forward instructions).
 `helm test` runs `templates/tests/test-connection.yaml`, a busybox Pod that `wget`s the
 Service, and should report `Phase: Succeeded`.
+
+![helm status and helm test](../screenshots/04-helm-status-test.png)
 
 ## 5. Get
 
@@ -67,6 +80,8 @@ kubectl -n helm-cmds get secrets -l owner=helm
 
 Expect: one `sh.helm.release.v1.rr.v1` Secret, which is where Helm keeps the release record.
 
+![helm get values / manifest and the release Secret](../screenshots/05-helm-get.png)
+
 ## 6. Upgrade and history
 
 ```bash
@@ -76,6 +91,8 @@ kubectl -n helm-cmds get pods -l app.kubernetes.io/instance=rr
 ```
 
 Expect: revision 2 with two Pods on the new image, and revision 1 marked `superseded`.
+
+![helm upgrade and history](../screenshots/07-helm-upgrade-history.png)
 
 ## 7. Rollback
 
@@ -88,18 +105,26 @@ Expect: a **new** revision 3 with the description `Rollback to 1`, and one Pod r
 the original tag again. A rollback never rewrites history. It adds a new revision that
 copies an old one.
 
+![helm rollback: revision 3 "Rollback to 1", one release Secret per revision](../screenshots/08-helm-rollback.png)
+
 ## 8. Dry run and uninstall
 
 ```bash
 helm install rr-preview reading-room -n helm-cmds --dry-run=server --set replicaCount=5 | head -30
 helm list -n helm-cmds                    # rr-preview is not there
 helm uninstall rr -n helm-cmds
-helm list -n helm-cmds -a                 # empty
+helm list -n helm-cmds                    # empty
 ```
+
+Helm 4 note: `helm list` already shows releases in every status, and the Helm 3 flags
+`-a/--all` are gone (`Error: unknown flag`). Filter with `--deployed`, `--failed`,
+`--uninstalled` and so on instead.
 
 `--dry-run=server` renders the chart and has the API server validate it, but nothing is
 created. `uninstall` deletes the objects and the release Secrets. Add `--keep-history` if
 you want `helm history` to keep working afterwards.
+
+![dry run and uninstall](../screenshots/09-helm-dryrun-uninstall.png)
 
 ## 9. Repositories, search, show
 
@@ -115,6 +140,12 @@ helm show chart podinfo/podinfo
 helm show values podinfo/podinfo | less
 ```
 
+![helm repo add / list / update](../screenshots/10-helm-repo.png)
+
+![helm search and helm show](../screenshots/11-helm-search-show.png)
+
+(`helm repo list` also shows repositories that were already configured on this machine.)
+
 ## 10. Install a public chart
 
 ```bash
@@ -127,6 +158,10 @@ helm uninstall catalogue-demo -n helm-cmds
 
 Expect: the JSON response includes `"message": "Library catalogue demo"`.
 
+![podinfo installed from its repository](../screenshots/12-helm-public-chart.png)
+
+![podinfo UI with the custom message, via port-forward](../screenshots/13-helm-podinfo-browser.png)
+
 ## 11. Package and remove a repo
 
 ```bash
@@ -136,12 +171,6 @@ helm repo remove bitnami
 kubectl delete namespace helm-cmds
 ```
 
-`helm package` was run locally while writing this folder and produced
-`reading-room-0.1.0.tgz`. The `.tgz` is not committed.
+![helm package and repo remove](../screenshots/14-helm-package-repo-remove.png)
 
-## Screenshots to capture (`../screenshots/`)
-
-`helm-create.png`, `helm-lint-template.png`, `helm-install-list.png`, `helm-status.png`,
-`helm-get.png`, `helm-upgrade-history.png`, `helm-rollback.png`,
-`helm-dryrun-uninstall.png`, `helm-repo.png`, `helm-search.png`, `helm-public-chart.png`,
-`helm-package-repo-remove.png`.
+The package was built in a scratch copy of the chart. The `.tgz` is not committed.
