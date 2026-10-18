@@ -21,7 +21,8 @@ git config user.name  "Parth Agarwal"
 git config user.email "<your email>"
 ```
 
-Output below is real (Git 2.39 on macOS), trimmed only where marked. Your commit hashes and
+Output below is real (Git 2.39.5 on macOS, run in a throwaway repo), trimmed only where marked;
+the screenshots under each block are from that same run. Your commit hashes and
 dates will be different.
 
 ---
@@ -45,7 +46,7 @@ $ printf 'GET /books\n' > routes.txt
 $ git add routes.txt
 $ git commit -q -m "Add list-books route"
 $ git log --oneline
-0975a99 Add list-books route
+3177b5d Add list-books route
 
 $ printf 'GET /books/{isbn}\n' >> routes.txt
 $ git status --short
@@ -63,7 +64,7 @@ $ git diff --stat
  routes.txt | 1 +
  1 file changed, 1 insertion(+)
 $ git commit -a -m "Add get-book-by-isbn route"
-[main 61e3353] Add get-book-by-isbn route
+[main 72733b8] Add get-book-by-isbn route
  1 file changed, 1 insertion(+)
 
 $ echo "PORT=8081" > .env.example
@@ -72,11 +73,15 @@ $ git status --short
  M routes.txt
 ?? .env.example
 $ git commit -a -m "Add create-book route"
-[main 9138237] Add create-book route
+[main bc9d34c] Add create-book route
  1 file changed, 1 insertion(+)
 $ git status --short
 ?? .env.example
 ```
+
+![git commit -m refused, git commit -a -m succeeded](screenshots/01-commit-m-refused-vs-commit-a.png)
+
+![commit -a with a modified tracked file and a new untracked file](screenshots/02-commit-a-skips-untracked.png)
 
 ### What it shows
 
@@ -110,10 +115,12 @@ $ printf 'POST /loans\n' >> routes.txt && git commit -q -a -m 'Add create-loan r
 $ printf 'MAX_RESULTS=50\n' > limits.txt && git add limits.txt && git commit -q -m 'Cap search results at 50'
 $ echo "debug=true" > debug.cfg && git add debug.cfg && git commit -q -m "Temporary debug config"
 $ git log --oneline main..feature/loans
-e1d7e78 Temporary debug config
-3b0a6a0 Cap search results at 50
-83b9a6e Add create-loan route
+be17cce Temporary debug config
+065091f Cap search results at 50
+5095734 Add create-loan route
 ```
+
+![feature/loans with three commits](screenshots/03-feature-branch.png)
 
 `main` needs the search limit **now**; the loans route is unfinished and the debug config
 must never reach `main`.
@@ -123,29 +130,31 @@ must never reach `main`.
 ```text
 $ git switch main
 Switched to branch 'main'
-$ git cherry-pick -x 3b0a6a0
-[main d6ea86a] Cap search results at 50
- Date: Sun Oct 18 19:25:30 2026 +0530
+$ git cherry-pick -x 065091f
+[main 9bbda55] Cap search results at 50
+ Date: Sun Oct 18 21:02:23 2026 +0530
  1 file changed, 1 insertion(+)
  create mode 100644 limits.txt
 $ git log --oneline
-d6ea86a Cap search results at 50
-9138237 Add create-book route
-61e3353 Add get-book-by-isbn route
-0975a99 Add list-books route
+9bbda55 Cap search results at 50
+bc9d34c Add create-book route
+72733b8 Add get-book-by-isbn route
+3177b5d Add list-books route
 $ ls
 limits.txt
 routes.txt
 $ git log -1 --format=%B
 Cap search results at 50
 
-(cherry picked from commit 3b0a6a05cb5af6a0a071e19ebba6488d3f9f2679)
+(cherry picked from commit 065091ff7c41b1ced3fe349adbd0bae609a80ac6)
 ```
+
+![cherry-pick -x of one commit, new hash on main, graph of both branches](screenshots/04-cherry-pick.png)
 
 What it shows:
 
 - Only `limits.txt` arrived on `main`; `debug.cfg` and the `/loans` route did not.
-- Same message and diff, **new hash** (`d6ea86a` vs `3b0a6a0`). The original author date is kept.
+- Same message and diff, **new hash** (`9bbda55` vs `065091f`). The original author date is kept.
 - `-x` appended a "cherry picked from" line, so reviewers can trace where it came from.
 
 ### When a cherry-pick conflicts
@@ -155,10 +164,10 @@ commit changes:
 
 ```text
 $ printf 'DELETE /books/{isbn}\n' >> routes.txt && git commit -q -a -m 'Add delete-book route'
-$ git cherry-pick 83b9a6e
+$ git cherry-pick 5095734
 Auto-merging routes.txt
 CONFLICT (content): Merge conflict in routes.txt
-error: could not apply 83b9a6e... Add create-loan route
+error: could not apply 5095734... Add create-loan route
 hint: After resolving the conflicts, mark them with
 hint: "git add/rm <pathspec>", then run
 hint: "git cherry-pick --continue".
@@ -176,11 +185,13 @@ POST /books
 DELETE /books/{isbn}
 =======
 POST /loans
->>>>>>> 83b9a6e (Add create-loan route)
+>>>>>>> 5095734 (Add create-loan route)
 $ git cherry-pick --abort
 $ git log --oneline -1
-f99a48f Add delete-book route
+a29461b Add delete-book route
 ```
+
+![CONFLICT, conflict markers in routes.txt, --abort restores main](screenshots/05-cherry-pick-conflict.png)
 
 `--abort` put the branch back exactly as it was. Running the pick again and resolving it
 (keeping both routes):
@@ -191,17 +202,22 @@ UU routes.txt
 $ printf 'GET /books\nGET /books/{isbn}\nPOST /books\nDELETE /books/{isbn}\nPOST /loans\n' > routes.txt
 $ git add routes.txt
 $ git cherry-pick --continue
-[main fbb7a7e] Add create-loan route
- Date: Sun Oct 18 19:25:30 2026 +0530
+[main 6e2f333] Add create-loan route
+ Date: Sun Oct 18 21:02:23 2026 +0530
  1 file changed, 1 insertion(+)
 $ git log --oneline
-fbb7a7e Add create-loan route
-f99a48f Add delete-book route
-d6ea86a Cap search results at 50
-9138237 Add create-book route
-61e3353 Add get-book-by-isbn route
-0975a99 Add list-books route
+6e2f333 Add create-loan route
+a29461b Add delete-book route
+9bbda55 Cap search results at 50
+bc9d34c Add create-book route
+72733b8 Add get-book-by-isbn route
+3177b5d Add list-books route
 ```
+
+![resolve the conflict, git add, cherry-pick --continue](screenshots/06-cherry-pick-continue.png)
+
+`--continue` opens your editor to confirm the commit message; in the scripted capture it was run as
+`GIT_EDITOR=true git cherry-pick --continue` to accept the message unchanged.
 
 ### Cherry-pick cheat sheet
 
@@ -226,10 +242,13 @@ git init -b main catalog-api && cd catalog-api
 
 ## Screenshots
 
-`screenshots/` contains only `.gitkeep`. Capture:
+Embedded above; files in [`screenshots/`](screenshots/):
 
-| File | What it should show |
+| File | Shows |
 |---|---|
-| `commit-m-vs-a.png` | the refused `git commit -m`, the successful `git commit -a -m`, and `.env.example` still `??` |
-| `cherry-pick.png` | `git log main..feature/loans`, the `cherry-pick -x`, and the new `git log --oneline` on main |
-| `cherry-pick-conflict.png` | the `CONFLICT` message, conflict markers in `routes.txt`, and `--continue` |
+| `01-commit-m-refused-vs-commit-a.png` | the refused `git commit -m` and the successful `git commit -a -m` |
+| `02-commit-a-skips-untracked.png` | `-a` commits `routes.txt` only; `.env.example` stays `??` |
+| `03-feature-branch.png` | three commits on `feature/loans`, `git log main..feature/loans` |
+| `04-cherry-pick.png` | `cherry-pick -x`, new `git log --oneline` on main, `-x` trailer, graph |
+| `05-cherry-pick-conflict.png` | `CONFLICT` message, markers in `routes.txt`, `--abort` |
+| `06-cherry-pick-continue.png` | resolving, `git add`, `--continue`, final history |
