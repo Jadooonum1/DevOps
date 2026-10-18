@@ -58,8 +58,9 @@ practise diagnosing common Compose failures.
 | POST | `/api/books/{id}/return` | 200, 409 if not on loan, 404 if missing |
 | DELETE | `/api/books/{id}` | 204 or 404 |
 
-FastAPI also serves interactive docs at `/docs` on the backend (reach it with
-`docker compose exec backend ...` or temporarily publish port 8000).
+FastAPI's interactive docs are served at `/api/docs` (OpenAPI schema at `/api/openapi.json`), so
+they are reachable through the nginx proxy at http://localhost:18080/api/docs without publishing the
+backend port.
 
 ## 1. Running it manually (without Compose)
 
@@ -134,12 +135,16 @@ docker inspect --format '{{json .State.Health}}' lib-bookshelf-db-1
 Tear down everything including data and built images:
 
 ```bash
-docker compose down -v --rmi local
+docker compose down -v
+docker rmi lib-bookshelf-backend lib-bookshelf-frontend
 ```
+
+(`--rmi local` would not remove them: it only deletes images that have no custom tag, and both
+services set `image:`. `--rmi all` would also delete the shared `postgres:17-alpine` image.)
 
 ## 3. Real results from this machine
 
-Docker Desktop 29.5.2 / Compose v2, with `.env` copied unchanged from `.env.example`.
+Docker 29.5.2 (Colima VM on macOS) / Compose v2, with `.env` copied unchanged from `.env.example`.
 
 `docker compose up -d --build` waited on each healthcheck in order (trimmed):
 
@@ -200,16 +205,71 @@ each with its real error and fix:
 
 ## Screenshots
 
-`screenshots/` contains only `.gitkeep`. Capture and add:
+All captured from a real run on this machine (Docker 29.5.2 in a Colima VM on macOS, Compose v2).
 
-1. `compose-config.png` - `docker compose config` output.
-2. `compose-up.png` - `docker compose up -d --build` showing the Waiting/Healthy sequence.
-3. `compose-ps.png` - `docker compose ps` with all three `(healthy)`.
-4. `browser-app.png` - the Bookshelf UI with a few books, one marked "On loan".
-5. `api-tests.png` - `./test-api.sh` with `passed=10 failed=0`.
-6. `psql.png` - the `SELECT` from inside the db container.
-7. `persistence.png` - books still present after `down` / `up`.
-8. `logs.png` - `docker compose logs backend`.
-9. `ts-1-no-healthcheck.png`, `ts-2-localhost.png`, `ts-3-network.png` - `ps -a` plus the backend
-   error for each broken file.
-10. `manual-run.png` - the manual `docker run` sequence ending in a healthy `/api/health`.
+### Manual run (section 1)
+
+![manual docker run sequence](screenshots/01-manual-run.png)
+
+### Compose
+
+`docker compose config` (password lines filtered out of the screenshot):
+
+![compose config](screenshots/02-compose-config.png)
+
+`docker compose up -d --build` - db Waiting -> Healthy, then backend, then frontend:
+
+![compose up](screenshots/03-compose-up.png)
+
+All three services `(healthy)`:
+
+![compose ps](screenshots/04-compose-ps.png)
+
+`./test-api.sh`:
+
+![test-api.sh](screenshots/05-api-tests.png)
+
+Adding books and borrowing one through the API:
+
+![seeding books](screenshots/06-seed-books.png)
+
+### In the browser
+
+The React frontend at http://localhost:18080 showing the rows from PostgreSQL, one "On loan":
+
+![Bookshelf UI](screenshots/07-browser-app.png)
+
+After typing "Kindred / Octavia E. Butler" into the form and clicking "Add book":
+
+![Book added from the UI](screenshots/08-browser-add-book.png)
+
+FastAPI's Swagger UI, reached through the nginx proxy at http://localhost:18080/api/docs:
+
+![API docs](screenshots/09-api-docs.png)
+
+### Database, isolation, persistence, logs
+
+`psql` inside the db container; the frontend cannot resolve `db`, the backend can:
+
+![psql and isolation](screenshots/10-psql-and-isolation.png)
+
+`docker compose down` keeps the volume; after `up` the same books come back:
+
+![persistence](screenshots/11-persistence.png)
+
+![backend logs](screenshots/12-logs.png)
+
+### Troubleshooting scenarios
+
+Each broken file was run for real, then fixed by running the corrected file (`docker-compose.yml`)
+under the same project name. Details in [`troubleshooting/README.md`](troubleshooting/README.md).
+
+| Broken | Fixed |
+|---|---|
+| ![ts1 broken](screenshots/13-ts1-broken.png) | ![ts1 fixed](screenshots/14-ts1-fixed.png) |
+| ![ts2 broken](screenshots/15-ts2-broken.png) | ![ts2 fixed](screenshots/16-ts2-fixed.png) |
+| ![ts3 broken](screenshots/17-ts3-broken.png) | ![ts3 fixed](screenshots/18-ts3-fixed.png) |
+
+### Teardown
+
+![teardown](screenshots/19-teardown.png)

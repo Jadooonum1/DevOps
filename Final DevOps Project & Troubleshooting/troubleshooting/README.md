@@ -17,6 +17,9 @@ docker compose -f $F --project-directory . down -v
 `--project-directory .` makes the build contexts (`./backend`, `./frontend`) and `.env` resolve
 from the project root rather than from `troubleshooting/`.
 
+To confirm a fix, tear the broken stack down and start the corrected file under the same project
+name, e.g. `docker compose -p lib-ts1 -f docker-compose.yml up -d --wait`, then `curl` the API.
+
 A general diagnosis order that works for all three:
 
 1. `docker compose ps -a` - which service is `Exited`, `Restarting` or `unhealthy`?
@@ -67,6 +70,12 @@ backend:
 Belt and braces: an application-level retry loop on startup (or `restart: unless-stopped`) also
 helps, but the healthcheck is what expresses the dependency correctly.
 
+Real run (broken, then fixed):
+
+![scenario 1 broken](../screenshots/13-ts1-broken.png)
+
+![scenario 1 fixed](../screenshots/14-ts1-fixed.png)
+
 ## 2. `DB_HOST=localhost` (`broken-2-localhost-db-host.yml`)
 
 **Change:** `DB_HOST: localhost` instead of `DB_HOST: db`.
@@ -75,9 +84,11 @@ helps, but the healthcheck is what expresses the dependency correctly.
 
 ```text
 dependency failed to start: container lib-ts2-backend-1 is unhealthy
-backend   Up Less than a second (health: starting)     <- keeps restarting
-db        Up 9 seconds (healthy)
+backend   Restarting (3) Less than a second ago        <- crash loop
+db        Up 7 seconds (healthy)
 frontend  Created                                      <- never started
+
+localhost -> 127.0.0.1  db -> 172.20.0.2                <- resolved inside the backend container
 
 psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5432 failed: Connection refused
 ```
@@ -90,6 +101,12 @@ opens.
 **Fix:** use the Compose service name, which Docker's embedded DNS resolves on the shared
 network: `DB_HOST: db`. Verify with
 `docker compose exec backend python -c "import socket; print(socket.gethostbyname('db'))"`.
+
+Real run (broken, then fixed):
+
+![scenario 2 broken](../screenshots/15-ts2-broken.png)
+
+![scenario 2 fixed](../screenshots/16-ts2-fixed.png)
 
 ## 3. Backend not on the database network (`broken-3-missing-network.yml`)
 
@@ -111,6 +128,12 @@ that share a network. `docker network inspect lib-ts3_data` lists only the db co
 
 **Fix:** attach the backend to both networks (`networks: [data, app]`). The split itself is
 intentional - the frontend should stay off `data` so it can never reach Postgres directly.
+
+Real run (broken, then fixed):
+
+![scenario 3 broken](../screenshots/17-ts3-broken.png)
+
+![scenario 3 fixed](../screenshots/18-ts3-fixed.png)
 
 ## Cleanup
 

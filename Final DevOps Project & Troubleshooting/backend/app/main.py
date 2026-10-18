@@ -47,7 +47,14 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="loan-service", lifespan=lifespan)
+# Docs live under /api/ so the nginx /api/ proxy also exposes them (http://localhost:18080/api/docs)
+app = FastAPI(
+    title="loan-service",
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
+)
 
 
 class BookIn(BaseModel):
