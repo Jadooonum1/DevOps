@@ -59,13 +59,13 @@ Or everything at once:
 ```bash
 cd "Docker Fundamentals"
 ./run-all.sh
-docker images | grep lib-
+docker images --filter reference='lib-*-hello'
 ./cleanup.sh
 ```
 
 ## Real output from this machine
 
-`./run-all.sh` (Docker 29.5.2 on Docker Desktop, macOS), trimmed to the curl checks:
+`./run-all.sh` (Docker 29.5.2 in a Colima VM on macOS), trimmed to the curl checks:
 
 ```text
 lib-node-hello     http://localhost:18101  <h1>Hello World from the Bookshelf (Node.js v20.20.2)</h1>
@@ -96,7 +96,7 @@ it stayed behind in the build stage.
 
 ## What to look for
 
-- `docker ps --filter name=lib-` lists six containers, each with its `0.0.0.0:181xx->port/tcp` mapping.
+- `docker ps --filter "name=^lib-.*-hello$"` lists six containers, each with its `0.0.0.0:181xx->port/tcp` mapping.
 - Each browser page shows the runtime name; Node, Python and Java also print the container ID
   (the hostname inside a container defaults to its short ID).
 - The React page has a "Books borrowed" button whose counter increases on click (proves the JS
@@ -105,9 +105,35 @@ it stayed behind in the build stage.
 
 ## Screenshots
 
-`screenshots/` contains only `.gitkeep`. Capture and add:
+All captured from a real run on this machine (Docker 29.5.2 in a Colima VM on macOS).
 
-1. `build-and-run.png` - terminal running `./run-all.sh` with the `docker ps` table at the end.
-2. `nodejs.png`, `python.png`, `java.png`, `apache.png`, `react.png`, `nginx.png` - each app open
-   in a browser at its `localhost:181xx` URL.
-3. `images.png` - `docker images | grep lib-` showing the sizes.
+`./run-all.sh` - six builds, six curl checks, and the `docker ps` table:
+
+![run-all.sh output](screenshots/01-build-and-run.png)
+
+Image sizes, the two `/health` endpoints and the Node container log:
+
+![docker images sizes](screenshots/02-images.png)
+
+curl against the Node, Python and Java apps (each prints its container ID), and the React
+`index.html`, which only contains a `<script>` tag because the page is rendered client-side:
+
+![curl output](screenshots/03-curl.png)
+
+### Each app in a browser
+
+| Node.js - `localhost:18101` | Python/Flask - `localhost:18102` |
+|---|---|
+| ![Node.js](screenshots/04-nodejs.png) | ![Python](screenshots/05-python.png) |
+| **Java - `localhost:18103`** | **Apache httpd - `localhost:18104`** |
+| ![Java](screenshots/06-java.png) | ![Apache](screenshots/07-apache.png) |
+| **React + Vite - `localhost:18105`** | **Nginx - `localhost:18106`** |
+| ![React](screenshots/08-react.png) | ![Nginx](screenshots/09-nginx.png) |
+
+The React page after clicking "Books borrowed" once (the counter proves the JS bundle loaded):
+
+![React after click](screenshots/10-react-clicked.png)
+
+`./cleanup.sh` removes the six containers and images:
+
+![cleanup](screenshots/11-cleanup.png)

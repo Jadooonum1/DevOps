@@ -30,4 +30,4 @@ for entry in "${apps[@]}"; do
   curl -fsS "http://localhost:$host_port/" | grep -oE '<h1>[^<]*</h1>|<title>[^<]*</title>' | head -1 || echo "FAILED"
 done
 
-docker ps --filter "name=lib-" --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}'
+docker ps --filter "name=^lib-.*-hello$" --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}'
