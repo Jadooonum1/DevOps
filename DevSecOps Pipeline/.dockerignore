@@ -1,0 +1,4 @@
+*
+!requirements.txt
+!loan_service/
+loan_service/__pycache__

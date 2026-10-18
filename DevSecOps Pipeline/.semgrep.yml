@@ -1,0 +1,30 @@
+# Project-specific rules that run alongside the public p/python and p/flask rulesets.
+rules:
+  - id: library-sql-built-with-string-formatting
+    languages: [python]
+    severity: ERROR
+    message: >-
+      SQL text is built with string formatting. Pass values as parameters,
+      e.g. conn.execute("... WHERE id = ?", (value,)).
+    patterns:
+      - pattern-either:
+          - pattern: $CONN.execute(f"...", ...)
+          - pattern: $CONN.execute("..." % $X, ...)
+          - pattern: $CONN.execute("..." + $X, ...)
+          - pattern: $CONN.execute("...".format(...), ...)
+
+  - id: library-flask-debug-enabled
+    languages: [python]
+    severity: ERROR
+    message: Flask debug mode exposes the Werkzeug debugger (remote code execution). Never enable it.
+    pattern-either:
+      - pattern: $APP.run(..., debug=True, ...)
+      - pattern: $APP.config["DEBUG"] = True
+
+  - id: library-hardcoded-secret-key
+    languages: [python]
+    severity: ERROR
+    message: SECRET_KEY must come from the environment or a secret store, not source code.
+    pattern-either:
+      - pattern: $APP.config["SECRET_KEY"] = "..."
+      - pattern: $APP.secret_key = "..."

@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loan-service
+  namespace: library
+  labels:
+    app.kubernetes.io/name: loan-service
+    app.kubernetes.io/part-of: library
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: loan-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loan-service
+        app.kubernetes.io/part-of: library
+    spec:
+      serviceAccountName: loan-service
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: loan-service
+          # pin by digest in a real deployment: loan-service@sha256:<digest from the pipeline>
+          image: ghcr.io/parthagarwal/loan-service:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: LOAN_DB_PATH
+              value: /data/loans.db
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+              ephemeral-storage: 16Mi
+            limits:
+              cpu: 250m
+              memory: 192Mi
+              ephemeral-storage: 64Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 32Mi
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi

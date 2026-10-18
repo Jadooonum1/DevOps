@@ -1,0 +1,13 @@
+# Start from gitleaks' built-in rules and add one for this project's (hypothetical) API key format.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "library-catalogue-api-key"
+description = "Library catalogue partner API key"
+regex = '''lib_live_[A-Za-z0-9]{32}'''
+keywords = ["lib_live_"]
+
+[allowlist]
+description = "virtualenvs and caches are never committed"
+paths = ['''\.venv/''', '''__pycache__/''']
