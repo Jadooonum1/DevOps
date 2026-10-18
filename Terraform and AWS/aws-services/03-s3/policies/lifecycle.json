@@ -1,0 +1,20 @@
+{
+  "Rules": [
+    {
+      "ID": "archive-old-scans",
+      "Filter": { "Prefix": "scans/" },
+      "Status": "Enabled",
+      "Transitions": [
+        { "Days": 30, "StorageClass": "STANDARD_IA" },
+        { "Days": 180, "StorageClass": "GLACIER" }
+      ]
+    },
+    {
+      "ID": "expire-old-versions",
+      "Filter": {},
+      "Status": "Enabled",
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 60 },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    }
+  ]
+}

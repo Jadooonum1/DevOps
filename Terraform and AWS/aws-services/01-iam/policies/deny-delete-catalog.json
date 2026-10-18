@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "NobodyDeletesTheCatalogue",
+      "Effect": "Deny",
+      "Action": ["s3:DeleteObject", "s3:DeleteBucket"],
+      "Resource": ["arn:aws:s3:::bookshelf-covers", "arn:aws:s3:::bookshelf-covers/*"]
+    }
+  ]
+}
