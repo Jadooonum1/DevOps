@@ -1,5 +1,6 @@
-# catalog-api stand-in: registry.k8s.io/hpa-example is a tiny PHP page that burns CPU
-# on every request, which makes CPU-based autoscaling easy to observe.
+# catalog-api stand-in: busybox httpd serving a CGI "search" that burns CPU on every
+# request, which makes CPU-based autoscaling easy to observe. (registry.k8s.io/hpa-example
+# is amd64-only and fails with "exec format error" on Apple Silicon / arm64 nodes.)
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -24,7 +25,21 @@ spec:
     spec:
       containers:
         - name: api
-          image: registry.k8s.io/hpa-example:latest
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              mkdir -p /www/cgi-bin
+              cat > /www/cgi-bin/search <<'CGI'
+              #!/bin/sh
+              # pretend to rank the catalogue: a deliberately CPU-heavy loop
+              i=0; while [ $i -lt 30000 ]; do i=$((i+1)); done
+              printf 'Content-Type: text/plain\r\n\r\n'
+              echo "catalog-api on $HOSTNAME: ranked $i titles"
+              CGI
+              chmod +x /www/cgi-bin/search
+              echo ok > /www/index.html
+              exec httpd -f -p 80 -h /www
           ports:
             - containerPort: 80
           # The HPA computes utilisation as usage / request, so a CPU request is mandatory.
