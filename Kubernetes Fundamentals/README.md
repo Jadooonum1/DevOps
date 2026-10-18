@@ -55,6 +55,8 @@ kubectl version
 context is `minikube`. Always check the context before applying anything; it is the easiest
 way to avoid running a command against the wrong cluster.
 
+![minikube status, context, version, cluster-info and nodes](screenshots/01-cluster-info.png)
+
 ## 3. Look at the cluster
 
 ```bash
@@ -77,6 +79,10 @@ kubectl get pods -n kube-system -o wide
 - The control-plane Pods show the node's IP in the `IP` column (they use host networking),
   while CoreDNS has an address from the Pod CIDR.
 
+![kube-system Pods on the single minikube node](screenshots/02-kube-system-pods.png)
+
+On this run the node reported `containerd://2.3.4` as its container runtime (Kubernetes v1.37.0).
+
 ## 4. Node capacity and the API surface
 
 ```bash
@@ -91,6 +97,8 @@ kubectl explain pod.spec.containers.resources
 scheduler actually uses. `api-resources` lists each kind with its short name (`po`, `svc`,
 `cm`, `deploy`) and whether it is namespaced. Nodes, Namespaces and PersistentVolumes are
 cluster-scoped, so `-n` has no effect on them.
+
+![Capacity / Allocatable and api-resources](screenshots/03-node-capacity.png)
 
 ## 5. A namespace and a first Pod
 
@@ -124,6 +132,12 @@ kubectl -n library port-forward pod/reader-web 8080:80   # then open http://loca
 - The `wget` inside the container returns the Nginx welcome page, and the access line for it
   shows up in `kubectl logs`.
 
+![reader-web applied, wide output with labels, and its Events](screenshots/04-first-pod.png)
+
+![nginx -v, wget against localhost and the matching access log line](screenshots/05-exec-logs.png)
+
+![The Pod's welcome page through kubectl port-forward on localhost:8080](screenshots/06-port-forward-browser.png)
+
 ## 6. Imperative equivalents and namespace scoping
 
 ```bash
@@ -142,6 +156,8 @@ one in `library-staging`. Names only have to be unique inside a namespace. Note 
 `kubectl run` adds the label `run=reader-web`, while the manifest uses `app=reader-web`, so
 the `-l run=...` query only finds the imperative one.
 
+![Two reader-web Pods in two namespaces](screenshots/07-namespaces.png)
+
 ## 7. Cleanup
 
 ```bash
@@ -151,6 +167,8 @@ kubectl -n library get pods          # nothing comes back: no controller recreat
 # keep the library namespace for the next exercises, or: kubectl delete -f manifests/namespace.yaml
 # minikube stop                      # pause the cluster without losing it
 ```
+
+![Cleanup: no controller recreates the bare Pod](screenshots/08-cleanup.png)
 
 ## kubectl quick reference
 
@@ -164,13 +182,3 @@ kubectl -n library get pods          # nothing comes back: no controller recreat
 | `kubectl explain <kind.field>` | Built-in API documentation |
 | `kubectl config get-contexts` / `use-context` | Which cluster am I talking to |
 | `kubectl port-forward <pod\|svc> local:remote` | Reach something in the cluster from the laptop |
-
-## Screenshots to capture
-
-Save these into [`screenshots/`](screenshots) after running the commands above:
-
-1. `cluster-info.png` - `minikube status`, `kubectl cluster-info`, `kubectl get nodes -o wide`
-2. `kube-system-pods.png` - `kubectl get pods -n kube-system -o wide`
-3. `node-capacity.png` - the Capacity / Allocatable block from `describe node`
-4. `first-pod.png` - `get pod -o wide --show-labels` and the Events from `describe pod reader-web`
-5. `namespaces.png` - `kubectl get pods -A | grep reader-web` showing both namespaces
