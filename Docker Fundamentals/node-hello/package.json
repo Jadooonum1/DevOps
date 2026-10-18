@@ -1,0 +1,8 @@
+{
+  "name": "bookshelf-node-hello",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hello World for the bookshelf catalogue, Node.js edition",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" }
+}
