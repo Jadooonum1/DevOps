@@ -61,6 +61,11 @@ kubectl get ingressclass
 **Expect:** one `ingress-nginx-controller-*` Pod Running, and an IngressClass named `nginx`.
 That name is what `ingressClassName: nginx` in the Ingress refers to.
 
+![ingress and metrics-server addons enabled, the controller Pod, and IngressClass nginx](screenshots/01-ingress-controller.png)
+
+On this cluster the IngressClass is marked `(default)`, so an Ingress without
+`ingressClassName` would also be picked up by ingress-nginx.
+
 ## 1. ConfigMap
 
 ```bash
@@ -78,6 +83,8 @@ kubectl -n library create configmap branch-config \
 prints YAML, which is a quick way to generate a ConfigMap file. All ConfigMap values are
 strings, which is why `"5"` and `"21"` are quoted in the manifest.
 
+![describe configmap and the dry-run YAML](screenshots/02-configmap.png)
+
 ## 2. Secret
 
 ```bash
@@ -93,6 +100,8 @@ base64 string, and `base64 -d` turns it straight back into `catalog_ro`. Anyone 
 `get` a Secret can read it. Protection comes from RBAC, from enabling encryption at rest for
 etcd, and from not committing real values to Git. The manifest here contains demo values
 only, and says so.
+
+![describe shows sizes only; jsonpath + base64 -d shows the value](screenshots/03-secret.png)
 
 ## 3. Inject both into the apps
 
@@ -111,6 +120,8 @@ kubectl -n library exec deploy/catalog-api -- cat /etc/nginx/conf.d/default.conf
 and the two Secret keys appear because each was mapped with `secretKeyRef`. The password is
 checked for presence and length rather than printed. The rendered `default.conf` shows the
 template with the values filled in.
+
+![Deployments, Pods, Services, the injected env vars and the rendered nginx config](screenshots/04-apps-env.png)
 
 ## 4. Ingress
 
@@ -136,7 +147,9 @@ for i in 1 2 3 4; do curl -s -H 'Host: library.local' http://localhost:8080/api/
 ```
 
 For a browser, add `127.0.0.1 library.local` to `/etc/hosts` and open
-`http://library.local:8080/`.
+`http://library.local:8080/`. (The browser screenshots below were taken with Chromium's
+`--host-resolver-rules="MAP library.local 127.0.0.1"`, which has the same effect without
+editing `/etc/hosts`.)
 
 **What to look for:**
 
@@ -151,6 +164,14 @@ For a browser, add `127.0.0.1 library.local` to `/etc/hosts` and open
 - The `"pod"` field changes between requests: the controller load-balances across both
   catalog-api replicas.
 
+![get ingress with ADDRESS, and describe ingress with both backends](screenshots/05-ingress-describe.png)
+
+![curls to /, /api/, /api/books, the 404 without Host, and alternating Pods](screenshots/06-ingress-routing.png)
+
+![Reader Web at http://library.local:8080/](screenshots/07-browser-reader-web.png)
+
+![catalog-api JSON at http://library.local:8080/api/](screenshots/08-browser-api.png)
+
 ## 5. Changing configuration
 
 Env vars are read once at container start, so editing a ConfigMap does not change running
@@ -164,21 +185,14 @@ kubectl -n library rollout status deploy/catalog-api
 curl -s -H 'Host: library.local' http://localhost:8080/api/       # now maxLoans 8
 ```
 
+![maxLoans stays 5 after the patch and becomes 8 after the restart](screenshots/09-configmap-restart.png)
+
 ## Cleanup
 
 ```bash
 kubectl delete -f 04-ingress.yaml -f 03-reader-web.yaml -f 03-catalog-api.yaml -f 02-secret.yaml -f 01-configmap.yaml
+kubectl delete -f 00-namespace.yaml   # optional
 # minikube addons disable ingress   # if you do not need it for the Advanced exercise
 ```
 
-## Screenshots to capture
-
-Save into [`screenshots/`](screenshots):
-
-1. `ingress-controller.png` - controller Pod and `kubectl get ingressclass`
-2. `configmap.png` - `describe configmap catalog-config`
-3. `secret.png` - `describe secret` (sizes only) next to the `base64 -d` result
-4. `apps-env.png` - `printenv` output from catalog-api and the DB_PASSWORD presence check
-5. `ingress-describe.png` - `get ingress` with ADDRESS and `describe ingress`
-6. `ingress-routing.png` - the curls to `/`, `/api/`, `/api/books` and the 404 without Host
-7. `configmap-restart.png` - maxLoans before and after the rollout restart
+![Cleanup](screenshots/10-cleanup.png)
